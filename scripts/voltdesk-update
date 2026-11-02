@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Wrapper for `update` (and the voltdesk-update alias) from any cwd in the LXC
+set -euo pipefail
+APP_DIR="${VOLTDESK_APP_DIR:-/opt/voltdesk}"
+if [[ ! -d "${APP_DIR}" ]]; then
+  APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
+
+# Older installers only published voltdesk-update. Expose `update` on first run.
+if [[ "$(id -u)" -eq 0 && ! -x /usr/local/bin/update ]]; then
+  install -m 0755 "${BASH_SOURCE[0]}" /usr/local/bin/update 2>/dev/null || true
+fi
+
+exec bash "${APP_DIR}/scripts/voltdesk-update.sh" "$@"

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Wrapper so `voltdesk-user` works from any cwd in the LXC
+set -euo pipefail
+APP_DIR="${VOLTDESK_APP_DIR:-/opt/voltdesk}"
+if [[ ! -d "${APP_DIR}" ]]; then
+  # Fallback when developing from a git checkout
+  APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
+export VOLTDESK_DATA_DIR="${VOLTDESK_DATA_DIR:-${APP_DIR}/data}"
+exec node "${APP_DIR}/scripts/voltdesk-user.mjs" "$@"
