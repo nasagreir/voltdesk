@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Car, ChartLine, LogOut, PlugZap, Route, Settings2 } from "lucide-react";
+import { Car, ChartLine, Clock3, LogOut, MapPin, Settings2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/", label: "Garage", icon: Car },
-  { href: "/drives", label: "Drives", icon: Route },
-  { href: "/charges", label: "Charges", icon: PlugZap },
-  { href: "/history", label: "History", icon: ChartLine },
+  { href: "/timeline", label: "Timeline", icon: Clock3 },
+  { href: "/reports", label: "Reports", icon: ChartLine },
+  { href: "/places", label: "Places", icon: MapPin },
   { href: "/settings", label: "Connections", icon: Settings2 },
 ];
 
@@ -57,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
             {links.map((link) => {
-              const active = pathname === link.href;
+              const active = link.href === "/" ? pathname === "/" : pathname === link.href || pathname.startsWith(`${link.href}/`);
               return (
                 <Link
                   key={link.href}
@@ -87,7 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="grid grid-cols-5 px-1 pt-1 pb-[max(0.4rem,env(safe-area-inset-bottom))]">
           {links.map((link) => {
             const Icon = link.icon;
-            const active = pathname === link.href;
+            const active = link.href === "/" ? pathname === "/" : pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}

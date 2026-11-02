@@ -1,5 +1,12 @@
-import { HistoryBoard } from "@/components/dashboard/history-board";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function HistoryPage() {
-  return <HistoryBoard focus="history" />;
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/reports");
+  }, [router]);
+  return <p className="text-sm text-muted-foreground">Opening reports…</p>;
 }

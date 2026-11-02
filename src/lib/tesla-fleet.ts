@@ -362,5 +362,16 @@ function mapVehicleData(
     lastUpdated: new Date().toISOString(),
     stale: false,
     alerts,
+    powerKw: maybeNum(drive.power),
+    elevationM: maybeNum(drive.elevation),
+    idealRangeMi: (() => {
+      const ideal = maybeNum(charge.ideal_battery_range);
+      return ideal == null ? null : toMiles(ideal);
+    })(),
+    usableBatteryPercent: maybeNum(charge.usable_battery_level),
+    chargerVoltage: maybeNum(charge.charger_voltage),
+    chargerCurrent: maybeNum(charge.charger_actual_current),
+    chargerPhases: maybeNum(charge.charger_phases),
+    fastCharger: Boolean(charge.fast_charger_present),
   };
 }

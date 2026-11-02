@@ -138,6 +138,12 @@ function vehicleFromPrefix(states: HaState[], prefix: string, settings: AppSetti
   const online = findMetric(states, prefix, ["online", "status"]);
   const shift = findMetric(states, prefix, ["shift_state"]);
   const speed = findMetric(states, prefix, ["speed"]);
+  const ideal = findMetric(states, prefix, ["ideal_battery_range"]);
+  const motor = findMetric(states, prefix, ["motor_power", "drive_power"]);
+  const elevation = findMetric(states, prefix, ["elevation"]);
+  const voltage = findMetric(states, prefix, ["charger_voltage"]);
+  const amps = findMetric(states, prefix, ["charger_actual_current", "charger_current"]);
+  const phases = findMetric(states, prefix, ["charger_phases"]);
   const software = findMetric(states, prefix, ["software_version", "car_version"]);
   const tracker = findMetric(states, prefix, ["location", "location_tracker"]);
   const versionText = software && Number.isNaN(Number(software.state)) ? software.state : "";
@@ -222,6 +228,12 @@ function vehicleFromPrefix(states: HaState[], prefix: string, settings: AppSetti
     lastUpdated: battery?.last_updated ?? new Date().toISOString(),
     stale: false,
     alerts: batteryPct <= 20 ? ["Battery is at or below 20%"] : [],
+    powerKw: numberOf(motor),
+    elevationM: numberOf(elevation),
+    idealRangeMi: toMiles(numberOf(ideal), ideal),
+    chargerVoltage: numberOf(voltage),
+    chargerCurrent: numberOf(amps),
+    chargerPhases: numberOf(phases),
   };
 }
 

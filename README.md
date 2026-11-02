@@ -2,14 +2,24 @@
 
 Self-hosted Tesla dashboard in the same shape as [OrbitDesk](https://github.com/nasagreir/orbitdesk): a Debian LXC on Proxmox, a pasteable installer, and an `update` command that backs up, swaps the release, health-checks, and rolls back if the new build fails.
 
-VoltDesk tracks the things TeslaMate keeps on the garage screen:
+VoltDesk covers the TeslaMate vehicle screens in its own UI:
 
-- Battery, rated range, and estimated range
-- Charge power, rate, limit, energy added, and time to the limit
-- Cabin and outside temperature, climate, locks, sentry, doors, and tire pressures
-- Location, with a home geofence
-- Drives and charge sessions derived from the samples it stores
-- 24 hour, 7 day, and 14 day history
+- Garage: battery, rated, ideal, and estimated range, charge detail, climate, locks, sentry, tires, location
+- Drives and drive detail, including route, speed, power, elevation, and net versus gross Wh per mile
+- Charges and charge detail, split into AC and DC, with voltage, current, phases, and cost
+- Statistics, trip search, drive stats, charging stats, efficiency, battery health, charge level, projected range
+- Vampire drain, states, mileage, temperatures, software updates, visited points, and a timeline
+- Geofences with a per-place electricity rate and session fee, plus address lookup for spots outside a fence
+
+It stores about 400 days of samples. While the car is driving or charging it polls about every 15 seconds. While the car is parked or asleep it keeps your normal interval and does not wake the car. That is polling, not TeslaMate's streaming websocket.
+
+Not included, on purpose:
+
+- Grafana
+- An MQTT broker (Home Assistant or the Tesla Fleet API replaces it)
+- TeslaFi or tesla-apiscraper import
+- Translations (the UI is English)
+- The TeslaMate database-information dashboard
 
 With no Tesla or Home Assistant credentials it runs a demo Model Y so you can click through the UI. Secrets stay in `.env.local` or `data/settings.json` on the container. The browser only talks to VoltDesk.
 
@@ -109,7 +119,7 @@ Auto mode tries Tesla first, then Home Assistant, then the demo car. Asleep cars
 | `npm run dev -- --port 3470 --hostname 0.0.0.0` | Dev server |
 | `npm run build` | Production build |
 | `npm run start` | Serve on `0.0.0.0:3470` |
-| `npm test` | Drive and charge session tests |
+| `npm test` | Drive, charge, and report tests |
 | `npm run user -- create admin` | Create a login from the CLI |
 | `update` | LXC update with backup and rollback |
 | `bash proxmox-install.sh` | Pasteable Proxmox LXC installer |
@@ -120,7 +130,7 @@ Auto mode tries Tesla first, then Home Assistant, then the demo car. Asleep cars
 | --- | --- |
 | `/opt/voltdesk` | App directory inside the LXC |
 | `/opt/voltdesk/.env.local` | Installer-written secrets |
-| `/opt/voltdesk/data` | Users, settings, samples, last report |
+| `/opt/voltdesk/data` | Users, settings, samples, geofences, address cache, last report |
 | `/etc/systemd/system/voltdesk.service` | systemd unit |
 | `/usr/local/bin/update` | Updater |
 | `proxmox-install.sh` | Single file you paste on the Proxmox host |

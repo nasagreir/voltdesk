@@ -4,7 +4,7 @@ import { getLatestFilePath, getSamplesFilePath } from "@/lib/auth/paths";
 import { readJson, writeJson } from "@/lib/store";
 import type { Vehicle, VehicleSample } from "@/lib/types";
 
-const KEEP_MS = 45 * 24 * 60 * 60 * 1000;
+const KEEP_MS = 400 * 24 * 60 * 60 * 1000;
 
 export function vehicleToSample(vehicle: Vehicle): VehicleSample {
   return {
@@ -24,6 +24,17 @@ export function vehicleToSample(vehicle: Vehicle): VehicleSample {
     insideTempC: vehicle.insideTempC,
     outsideTempC: vehicle.outsideTempC,
     packKwh: vehicle.packKwh,
+    powerKw: vehicle.powerKw ?? null,
+    elevationM: vehicle.elevationM ?? null,
+    idealRangeMi: vehicle.idealRangeMi ?? null,
+    estRangeMi: vehicle.estRangeMi,
+    usableBatteryPercent: vehicle.usableBatteryPercent ?? null,
+    chargerVoltage: vehicle.chargerVoltage ?? null,
+    chargerCurrent: vehicle.chargerCurrent ?? null,
+    chargerPhases: vehicle.chargerPhases ?? null,
+    fastCharger: vehicle.fastCharger ?? false,
+    softwareVersion: vehicle.softwareVersion || undefined,
+    activity: vehicle.state,
   };
 }
 
@@ -44,16 +55,18 @@ export async function readSamples(): Promise<VehicleSample[]> {
 }
 
 export async function recordVehicles(vehicles: Vehicle[], minIntervalSec: number) {
-  const fresh = vehicles.filter((vehicle) => !vehicle.stale && vehicle.batteryPercent > 0);
+  const fresh = vehicles.filter((vehicle) => vehicle.batteryPercent > 0 || vehicle.odometerMi > 0);
   if (fresh.length === 0) return;
   const existing = await readSamples();
   const lines: string[] = [];
   for (const vehicle of fresh) {
     const previous = [...existing].reverse().find((sample) => sample.vehicleId === vehicle.id);
     const sample = vehicleToSample(vehicle);
+    const quiet = vehicle.state === "asleep" || vehicle.state === "offline";
+    const intervalSec = quiet ? Math.max(minIntervalSec, 15 * 60) : minIntervalSec;
     if (previous) {
       const delta = new Date(sample.at).getTime() - new Date(previous.at).getTime();
-      if (delta < minIntervalSec * 1000) continue;
+      if (delta < intervalSec * 1000) continue;
     }
     lines.push(JSON.stringify(sample));
     existing.push(sample);
@@ -62,7 +75,7 @@ export async function recordVehicles(vehicles: Vehicle[], minIntervalSec: number
   await fs.mkdir(path.dirname(getSamplesFilePath()), { recursive: true });
   await fs.appendFile(getSamplesFilePath(), `${lines.join("\n")}\n`, { mode: 0o600 });
   const stat = await fs.stat(getSamplesFilePath());
-  if (stat.size > 6_000_000) {
+  if (stat.size > 20_000_000) {
     const trimmed = existing.filter((sample) => Date.now() - new Date(sample.at).getTime() < KEEP_MS);
     await fs.writeFile(
       getSamplesFilePath(),

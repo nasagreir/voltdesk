@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   CartesianGrid,
@@ -178,7 +179,11 @@ export function HistoryBoard({
                     <tbody>
                       {payload.drives.map((drive) => (
                         <tr key={drive.id} className="border-t border-white/10">
-                          <td className="py-2">{formatChicagoStamp(new Date(drive.startedAt))}</td>
+                          <td className="py-2">
+                            <Link className="underline-offset-2 hover:underline" href={`/drives/${encodeURIComponent(drive.id)}`}>
+                              {formatChicagoStamp(new Date(drive.startedAt))}
+                            </Link>
+                          </td>
                           <td className="py-2">{drive.fromLabel}</td>
                           <td className="py-2">{drive.inProgress ? "In progress" : drive.toLabel}</td>
                           <td className="py-2">{formatDistance(drive.distanceMi, unit, 1)}</td>
@@ -221,7 +226,11 @@ export function HistoryBoard({
                     <tbody>
                       {payload.charges.map((charge) => (
                         <tr key={charge.id} className="border-t border-white/10">
-                          <td className="py-2">{formatChicagoStamp(new Date(charge.startedAt))}</td>
+                          <td className="py-2">
+                            <Link className="underline-offset-2 hover:underline" href={`/charges/${encodeURIComponent(charge.id)}`}>
+                              {formatChicagoStamp(new Date(charge.startedAt))}
+                            </Link>
+                          </td>
                           <td className="py-2">{charge.inProgress ? `${charge.placeLabel} · now` : charge.placeLabel}</td>
                           <td className="py-2">{formatFixed(charge.energyKwh, "kWh", 1)}</td>
                           <td className="py-2">

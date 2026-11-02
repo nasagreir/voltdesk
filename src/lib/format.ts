@@ -75,6 +75,13 @@ export function presentVehicle(
         ? "—"
         : formatDistance(vehicle.homeDistanceMi, units.distance, 1),
     updated: formatChicagoStamp(new Date(vehicle.lastUpdated)),
+    idealRange:
+      vehicle.idealRangeMi == null
+        ? "—"
+        : formatDistance(vehicle.idealRangeMi, units.distance, 0),
+    power: formatFixed(vehicle.powerKw ?? null, "kW", 1),
+    elevation:
+      vehicle.elevationM == null ? "—" : `${Math.round(vehicle.elevationM)} m`,
   };
   return { ...vehicle, display };
 }

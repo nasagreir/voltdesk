@@ -1,5 +1,5 @@
 import { formatChicago } from "./time";
-import { deriveCharges, deriveDrives } from "./sessions";
+import { deriveCharges, deriveDrives, type PlaceHint } from "./sessions";
 import type {
   HistoryPayload,
   HistoryRange,
@@ -19,7 +19,7 @@ export function buildHistory(input: {
   now: Date;
   vehicleId?: string | null;
   rateUsdPerKwh: number | null;
-  home?: { lat: number; lng: number; label: string; radiusM: number } | null;
+  home?: PlaceHint;
   mode: HistoryPayload["mode"];
   source: HistoryPayload["source"];
   units: HistoryPayload["units"];
@@ -74,6 +74,9 @@ export function buildHistory(input: {
     return sum + drive.distanceMi;
   }, 0);
   const energyAddedKwh = charges.reduce((sum, charge) => sum + charge.energyKwh, 0);
+  const costs = charges
+    .map((charge) => charge.costUsd)
+    .filter((cost): cost is number => cost != null);
   const batteries = inWindow.map((sample) => sample.batteryPercent);
 
   return {
@@ -91,8 +94,7 @@ export function buildHistory(input: {
       avgWhPerMi: weightedMiles > 0 ? weightedWh / weightedMiles : null,
       energyAddedKwh,
       chargeCount: charges.length,
-      costUsd:
-        input.rateUsdPerKwh == null ? null : energyAddedKwh * input.rateUsdPerKwh,
+      costUsd: costs.length ? costs.reduce((sum, cost) => sum + cost, 0) : null,
       driveMinutes: drives.reduce((sum, drive) => sum + drive.durationMin, 0),
       minBattery: batteries.length ? Math.min(...batteries) : null,
       maxBattery: batteries.length ? Math.max(...batteries) : null,

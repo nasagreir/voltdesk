@@ -72,6 +72,14 @@ export interface Vehicle {
   lastUpdated: string;
   stale: boolean;
   alerts: string[];
+  powerKw?: number | null;
+  elevationM?: number | null;
+  idealRangeMi?: number | null;
+  usableBatteryPercent?: number | null;
+  chargerVoltage?: number | null;
+  chargerCurrent?: number | null;
+  chargerPhases?: number | null;
+  fastCharger?: boolean;
 }
 
 export interface VehicleDisplay {
@@ -92,6 +100,9 @@ export interface VehicleDisplay {
   coords: string;
   homeDistance: string;
   updated: string;
+  idealRange: string;
+  power: string;
+  elevation: string;
 }
 
 export interface VehicleView extends Vehicle {
@@ -125,6 +136,17 @@ export interface VehicleSample {
   insideTempC: number | null;
   outsideTempC: number | null;
   packKwh: number;
+  powerKw?: number | null;
+  elevationM?: number | null;
+  idealRangeMi?: number | null;
+  estRangeMi?: number | null;
+  usableBatteryPercent?: number | null;
+  chargerVoltage?: number | null;
+  chargerCurrent?: number | null;
+  chargerPhases?: number | null;
+  fastCharger?: boolean;
+  softwareVersion?: string;
+  activity?: VehicleActivity;
 }
 
 export interface DriveSession {
@@ -140,6 +162,19 @@ export interface DriveSession {
   efficiencyWhPerMi: number | null;
   fromLabel: string;
   toLabel: string;
+  energyNetKwh: number | null;
+  grossWhPerMi: number | null;
+  avgSpeedMph: number;
+  maxSpeedMph: number;
+  maxPowerKw: number | null;
+  minPowerKw: number | null;
+  outsideTempC: number | null;
+  elevationGainM: number | null;
+  startRatedRangeMi: number;
+  endRatedRangeMi: number;
+  startIdealRangeMi: number | null;
+  endIdealRangeMi: number | null;
+  path: Array<{ lat: number; lng: number }>;
 }
 
 export interface ChargeSession {
@@ -155,6 +190,118 @@ export interface ChargeSession {
   peakPowerKw: number;
   costUsd: number | null;
   placeLabel: string;
+  energyUsedKwh: number;
+  rangeAddedMi: number;
+  kind: "AC" | "DC";
+  voltage: number | null;
+  current: number | null;
+  phases: number | null;
+  outsideTempC: number | null;
+  efficiencyPct: number | null;
+  lat: number | null;
+  lng: number | null;
+}
+
+export interface Geofence {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radiusM: number;
+  costPerKwh: number;
+  sessionFee: number;
+}
+
+export interface TimelineItem {
+  at: string;
+  kind: "drive" | "charge" | "update" | "state";
+  title: string;
+  detail: string;
+  id?: string;
+}
+
+export interface ReportsPayload {
+  vehicleId: string | null;
+  vehicleName: string | null;
+  mode: ConnectionMode;
+  source: DataSource;
+  message: string;
+  fetchedAt: string;
+  from: string;
+  to: string;
+  days: number;
+  units: { distance: DistanceUnit; temp: TempUnit };
+  statistics: {
+    distanceMi: number;
+    driveCount: number;
+    driveMinutes: number;
+    avgSpeedMph: number | null;
+    maxSpeedMph: number | null;
+    avgWhPerMi: number | null;
+    avgGrossWhPerMi: number | null;
+    elevationGainM: number | null;
+    chargeCount: number;
+    energyAddedKwh: number;
+    chargeMinutes: number;
+    costUsd: number | null;
+  };
+  driveStats: {
+    count: number;
+    distanceMi: number;
+    durationMin: number;
+    avgDistanceMi: number | null;
+    avgDurationMin: number | null;
+    avgSpeedMph: number | null;
+    maxSpeedMph: number | null;
+    efficiencyWhPerMi: number | null;
+    energyNetKwh: number;
+    byHour: Array<{ hour: number; count: number; distanceMi: number }>;
+  };
+  chargingStats: {
+    count: number;
+    energyKwh: number;
+    energyUsedKwh: number;
+    costUsd: number | null;
+    durationMin: number;
+    ac: { count: number; energyKwh: number; costUsd: number | null };
+    dc: { count: number; energyKwh: number; costUsd: number | null };
+    byPlace: Array<{ place: string; count: number; energyKwh: number; costUsd: number | null }>;
+  };
+  efficiency: {
+    avgNetWhPerMi: number | null;
+    avgGrossWhPerMi: number | null;
+    points: Array<{ at: string; label: string; netWhPerMi: number | null; grossWhPerMi: number | null; distanceMi: number }>;
+  };
+  batteryHealth: {
+    nominalMi: number | null;
+    currentFullRatedMi: number | null;
+    degradationPct: number | null;
+    note: string;
+    points: Array<{ at: string; label: string; odometerMi: number; fullRatedMi: number; degradationPct: number | null }>;
+  };
+  chargeLevel: Array<{ at: string; label: string; batteryPercent: number; usablePercent: number | null }>;
+  projectedRange: Array<{ at: string; label: string; ratedRangeMi: number; estRangeMi: number | null }>;
+  vampire: {
+    totalSocDrop: number;
+    totalHours: number;
+    avgPctPerHour: number | null;
+    events: Array<{ startedAt: string; endedAt: string; hours: number; socDrop: number; place: string }>;
+  };
+  states: {
+    segments: Array<{ startedAt: string; endedAt: string; activity: VehicleActivity; minutes: number }>;
+    totals: Record<VehicleActivity, number>;
+  };
+  mileage: {
+    totalMi: number;
+    points: Array<{ day: string; odometerMi: number; distanceMi: number }>;
+  };
+  temperatures: Array<{ at: string; label: string; insideC: number | null; outsideC: number | null }>;
+  updates: Array<{ at: string; version: string; odometerMi: number }>;
+  timeline: TimelineItem[];
+  locations: Array<{ name: string; visits: number; minutes: number; lat: number | null; lng: number | null }>;
+  visited: Array<{ lat: number; lng: number }>;
+  drives: DriveSession[];
+  charges: ChargeSession[];
 }
 
 export interface HistorySeriesPoint {

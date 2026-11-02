@@ -1,6 +1,6 @@
 import { activityFrom } from "./sessions";
-import { chicagoDate, chicagoYMD, addCalendarDays, dayIndex } from "./time";
-import type { ShiftState, Vehicle, VehicleSample } from "./types";
+import { addCalendarDays, chicagoDate, chicagoParts, chicagoYMD, dayIndex } from "./time";
+import type { ShiftState, Vehicle, VehicleActivity, VehicleSample } from "./types";
 
 export const DEMO_HOME = {
   lat: 41.9482,
@@ -16,8 +16,28 @@ const MID = {
 };
 
 const PACK_KWH = 78.1;
-const FULL_RANGE_MI = 310;
 const VEHICLE_ID = "demo-roadrunner";
+
+export const DEMO_FENCES = [
+  {
+    id: "home",
+    name: "Home",
+    lat: DEMO_HOME.lat,
+    lng: DEMO_HOME.lng,
+    radiusM: 250,
+    costPerKwh: 0.14,
+    sessionFee: 0,
+  },
+  {
+    id: "work",
+    name: "Work",
+    lat: WORK.lat,
+    lng: WORK.lng,
+    radiusM: 200,
+    costPerKwh: 0.22,
+    sessionFee: 0,
+  },
+];
 
 interface Frame {
   at: number;
@@ -28,10 +48,17 @@ interface Frame {
   energy: number;
   lat: number;
   lng: number;
+  elevation: number;
   power: number;
   inside: number;
   outside: number;
   speed: number;
+}
+
+function placeOf(place: "home" | "work" | "mid") {
+  if (place === "home") return { ...DEMO_HOME, elevation: 181 };
+  if (place === "work") return { ...WORK, elevation: 180 };
+  return { ...MID, elevation: 186 };
 }
 
 function frame(
@@ -51,7 +78,7 @@ function frame(
   outside: number,
   speed: number,
 ): Frame {
-  const coords = place === "home" ? DEMO_HOME : place === "work" ? WORK : MID;
+  const coords = placeOf(place);
   return {
     at: chicagoDate(y, m, d, hour, minute).getTime(),
     battery,
@@ -61,6 +88,7 @@ function frame(
     energy,
     lat: coords.lat,
     lng: coords.lng,
+    elevation: coords.elevation,
     power,
     inside,
     outside,
@@ -71,17 +99,17 @@ function frame(
 function dayFrames(y: number, m: number, d: number): Frame[] {
   return [
     frame(y, m, d, 0, 15, 68, 0, "P", "Disconnected", 0, "home", 0, 17, 6, 0),
-    frame(y, m, d, 0, 35, 69, 0, "P", "Charging", 0.6, "home", 11.5, 18, 6, 0),
+    frame(y, m, d, 0, 35, 69, 0, "P", "Charging", 0.2, "home", 11.5, 18, 6, 0),
     frame(y, m, d, 3, 0, 75, 0, "P", "Charging", 5.4, "home", 11.5, 20, 5, 0),
     frame(y, m, d, 6, 20, 80, 0, "P", "Charging", 9.4, "home", 7.2, 21, 5, 0),
-    frame(y, m, d, 6, 40, 80, 0, "P", "Disconnected", 0, "home", 0, 20, 6, 0),
+    frame(y, m, d, 6, 40, 80, 0, "P", "Disconnected", 9.4, "home", 0, 20, 6, 0),
     frame(y, m, d, 7, 45, 80, 0, "D", "Disconnected", 0, "home", 0, 21, 6, 28),
-    frame(y, m, d, 8, 4, 78, 6, "D", "Disconnected", 0, "mid", 0, 21, 7, 34),
+    frame(y, m, d, 8, 4, 78, 6, "D", "Disconnected", 0, "mid", 0, 21, 7, 58),
     frame(y, m, d, 8, 22, 76, 11.4, "P", "Disconnected", 0, "work", 0, 19, 8, 0),
     frame(y, m, d, 12, 30, 75, 11.4, "P", "Disconnected", 0, "work", 0, 18, 11, 0),
     frame(y, m, d, 17, 15, 74, 11.4, "P", "Disconnected", 0, "work", 0, 19, 10, 0),
     frame(y, m, d, 17, 22, 74, 11.4, "D", "Disconnected", 0, "work", 0, 21, 9, 26),
-    frame(y, m, d, 17, 42, 72, 17.2, "D", "Disconnected", 0, "mid", 0, 21, 8, 33),
+    frame(y, m, d, 17, 42, 72, 17.2, "D", "Disconnected", 0, "mid", 0, 21, 8, 55),
     frame(y, m, d, 18, 2, 70, 23, "P", "Disconnected", 0, "home", 0, 20, 7, 0),
     frame(y, m, d, 23, 40, 68, 23, "P", "Disconnected", 0, "home", 0, 18, 6, 0),
   ];
@@ -91,30 +119,70 @@ function lerp(a: number, b: number, u: number): number {
   return a + (b - a) * u;
 }
 
-function sampleFrom(frameAt: Frame, odoBase: number, atMs: number, next?: Frame, u = 0): VehicleSample {
+function fullRangeMi(odometerMi: number): number {
+  const miles = Math.max(0, odometerMi - 16840);
+  // A used pack sits near 292 miles. The last stretch keeps sloping so the
+  // battery-health chart moves across the two weeks of demo history.
+  const tail = Math.max(0, miles - 23_000);
+  return Math.max(250, 292 - tail * 0.012);
+}
+
+function activityFor(current: Frame): VehicleActivity {
+  if (current.charging === "Charging") return "charging";
+  if (current.shift === "D" || current.shift === "R" || current.speed > 3) return "driving";
+  const hour = chicagoParts(new Date(current.at)).hour;
+  if (hour >= 23 || hour < 6) return "asleep";
+  return "parked";
+}
+
+function sampleFrom(
+  frameAt: Frame,
+  odoBase: number,
+  atMs: number,
+  softwareVersion: string,
+  next?: Frame,
+  u = 0,
+): VehicleSample {
   const battery = next ? lerp(frameAt.battery, next.battery, u) : frameAt.battery;
   const driveMi = next ? lerp(frameAt.driveMi, next.driveMi, u) : frameAt.driveMi;
   const lat = next ? lerp(frameAt.lat, next.lat, u) : frameAt.lat;
   const lng = next ? lerp(frameAt.lng, next.lng, u) : frameAt.lng;
   const inside = next ? lerp(frameAt.inside, next.inside, u) : frameAt.inside;
   const outside = next ? lerp(frameAt.outside, next.outside, u) : frameAt.outside;
+  const speed = next ? lerp(frameAt.speed, next.speed, u) : frameAt.speed;
+  const elevation = next ? lerp(frameAt.elevation, next.elevation, u) : frameAt.elevation;
+  const odometerMi = odoBase + driveMi;
+  const rated = (battery / 100) * fullRangeMi(odometerMi);
+  const charging = frameAt.charging === "Charging";
+  const driving = frameAt.shift === "D" || frameAt.shift === "R";
   return {
     at: new Date(atMs).toISOString(),
     vehicleId: VEHICLE_ID,
     name: "Roadrunner",
     batteryPercent: Math.round(battery * 10) / 10,
-    ratedRangeMi: (battery / 100) * FULL_RANGE_MI,
-    odometerMi: odoBase + driveMi,
+    ratedRangeMi: rated,
+    estRangeMi: rated * 0.93,
+    idealRangeMi: rated * 1.2,
+    usableBatteryPercent: battery,
+    odometerMi,
     chargingState: frameAt.charging,
     chargerPowerKw: frameAt.power,
     energyAddedKwh: next ? lerp(frameAt.energy, next.energy, u) : frameAt.energy,
     shiftState: frameAt.shift,
-    speedMph: frameAt.speed,
+    speedMph: speed,
     lat,
     lng,
     insideTempC: inside,
     outsideTempC: outside,
     packKwh: PACK_KWH,
+    powerKw: driving ? speed * 0.55 + 8 : 0,
+    elevationM: elevation,
+    chargerVoltage: charging ? 240 : null,
+    chargerCurrent: charging ? frameAt.power / 0.24 : null,
+    chargerPhases: charging ? 1 : null,
+    fastCharger: false,
+    softwareVersion,
+    activity: activityFor(frameAt),
   };
 }
 
@@ -126,22 +194,27 @@ export function buildDemoSamples(now: Date): VehicleSample[] {
   for (let offset = -13; offset <= 0; offset += 1) {
     const day = addCalendarDays(today.y, today.m, today.d, offset);
     const base = 16840 + dayIndex(day.y, day.m, day.d) * 23;
+    const version = offset <= -7 ? "2026.20.7" : "2026.32.6";
     const frames = dayFrames(day.y, day.m, day.d);
     for (let i = 0; i < frames.length; i += 1) {
       const current = frames[i];
       if (current.at > nowMs) break;
       const upcoming = frames[i + 1];
-      samples.push(sampleFrom(current, base, current.at));
+      samples.push(sampleFrom(current, base, current.at, version));
       if (!upcoming) continue;
       const segmentEnd = Math.min(upcoming.at, nowMs);
-      const step = 20 * 60 * 1000;
-      for (let t = current.at + step; t < segmentEnd; t += step) {
-        const u = (t - current.at) / (upcoming.at - current.at);
-        samples.push(sampleFrom(current, base, t, upcoming, u));
+      const sameActivity = upcoming.shift === current.shift && upcoming.charging === current.charging;
+      if (sameActivity) {
+        const driving = current.shift === "D" || current.shift === "R";
+        const step = driving ? 4 * 60 * 1000 : 20 * 60 * 1000;
+        for (let t = current.at + step; t < segmentEnd; t += step) {
+          const u = (t - current.at) / (upcoming.at - current.at);
+          samples.push(sampleFrom(current, base, t, version, upcoming, u));
+        }
       }
       if (nowMs > current.at && nowMs < upcoming.at) {
         const u = (nowMs - current.at) / (upcoming.at - current.at);
-        samples.push(sampleFrom(current, base, nowMs, upcoming, u));
+        samples.push(sampleFrom(current, base, nowMs, version, upcoming, u));
       }
     }
   }
@@ -156,10 +229,10 @@ export function vehicleFromSample(
 ): Vehicle {
   const homeDistanceMi =
     home && sample.lat != null && sample.lng != null
-      ? (Math.hypot(
+      ? Math.hypot(
           (sample.lat - home.lat) * 69,
           (sample.lng - home.lng) * 69 * Math.cos((home.lat * Math.PI) / 180),
-        ))
+        )
       : null;
   const atHome =
     homeDistanceMi == null || home == null
@@ -170,11 +243,13 @@ export function vehicleFromSample(
     sample.lng != null &&
     Math.abs(sample.lat - WORK.lat) < 0.01 &&
     Math.abs(sample.lng - WORK.lng) < 0.01;
-  const state = activityFrom({
-    chargingState: sample.chargingState,
-    shiftState: sample.shiftState,
-    speedMph: sample.speedMph,
-  });
+  const state =
+    sample.activity ??
+    activityFrom({
+      chargingState: sample.chargingState,
+      shiftState: sample.shiftState,
+      speedMph: sample.speedMph,
+    });
   const minutesToFull =
     state === "charging" && sample.batteryPercent < 80 && sample.chargerPowerKw > 0
       ? ((80 - sample.batteryPercent) / 100) * sample.packKwh / sample.chargerPowerKw * 60
@@ -189,13 +264,15 @@ export function vehicleFromSample(
     color: "Pearl White",
     packKwh: sample.packKwh,
     state,
-    softwareVersion: "2026.32.6",
-    updateAvailable: null,
+    softwareVersion: sample.softwareVersion || "2026.32.6",
+    updateAvailable: sample.softwareVersion === "2026.20.7" ? "2026.32.6" : null,
     odometerMi: sample.odometerMi,
     batteryPercent: sample.batteryPercent,
     chargeLimitPercent: 80,
     ratedRangeMi: sample.ratedRangeMi,
-    estRangeMi: sample.ratedRangeMi * 0.93,
+    estRangeMi: sample.estRangeMi ?? sample.ratedRangeMi * 0.93,
+    idealRangeMi: sample.idealRangeMi ?? null,
+    usableBatteryPercent: sample.usableBatteryPercent ?? sample.batteryPercent,
     chargingState: sample.chargingState,
     chargerPowerKw: sample.chargerPowerKw,
     chargeRateMph: state === "charging" ? 36 : 0,
@@ -224,6 +301,12 @@ export function vehicleFromSample(
     lastUpdated: sample.at,
     stale: false,
     alerts: [],
+    powerKw: sample.powerKw ?? null,
+    elevationM: sample.elevationM ?? null,
+    chargerVoltage: sample.chargerVoltage ?? null,
+    chargerCurrent: sample.chargerCurrent ?? null,
+    chargerPhases: sample.chargerPhases ?? null,
+    fastCharger: sample.fastCharger ?? false,
   };
 }
 

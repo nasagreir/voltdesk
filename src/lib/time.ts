@@ -82,6 +82,39 @@ export function formatChicago(date: Date, range: "24h" | "7d" | "14d"): string {
   }).format(date);
 }
 
+export function chicagoParts(date: Date): {
+  y: number;
+  m: number;
+  d: number;
+  hour: number;
+  minute: number;
+  key: string;
+} {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(
+    fmt.formatToParts(date).map((part) => [part.type, part.value]),
+  );
+  const y = Number(parts.year);
+  const m = Number(parts.month);
+  const d = Number(parts.day);
+  return {
+    y,
+    m,
+    d,
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+    key: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+  };
+}
+
 export function formatChicagoStamp(date: Date): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",

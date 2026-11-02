@@ -15,7 +15,7 @@ export async function proxy(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
-    pathname.includes(".")
+    /\.(?:ico|png|jpe?g|svg|webp|gif|txt|xml|webmanifest)$/i.test(pathname)
   ) {
     return NextResponse.next();
   }

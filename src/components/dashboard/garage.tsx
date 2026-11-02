@@ -61,9 +61,11 @@ export function Garage() {
 
   useEffect(() => {
     if (!payload) return;
+    const active = payload.vehicles.some((item) => item.state === "driving" || item.state === "charging");
+    const seconds = active ? Math.min(15, payload.pollIntervalSeconds) : Math.max(15, payload.pollIntervalSeconds);
     const timer = window.setInterval(() => {
       void load();
-    }, Math.max(15, payload.pollIntervalSeconds) * 1000);
+    }, seconds * 1000);
     return () => window.clearInterval(timer);
   }, [load, payload]);
 
@@ -152,13 +154,16 @@ export function Garage() {
               range={vehicle.display.ratedRange}
             />
             <p className="mt-2 text-center text-xs text-muted-foreground">
-              Estimated {vehicle.display.estRange} · limit {vehicle.display.chargeLimit}
+              Estimated {vehicle.display.estRange}
+              {vehicle.idealRangeMi != null ? ` · ideal ${vehicle.display.idealRange}` : ""} · limit {vehicle.display.chargeLimit}
             </p>
           </CardContent>
         </Card>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Fact label="Odometer" value={vehicle.display.odometer} />
           <Fact label="Speed" value={vehicle.display.speed} />
+          <Fact label="Motor" value={vehicle.display.power} />
+          <Fact label="Elevation" value={vehicle.display.elevation} />
           <Fact label="Inside" value={vehicle.display.inside} />
           <Fact label="Outside" value={vehicle.display.outside} />
           <Fact label="Locked" value={yesNo(vehicle.locked, "Locked", "Unlocked")} />
