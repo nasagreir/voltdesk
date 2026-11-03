@@ -114,6 +114,26 @@ Regions: `na`, `eu`, `cn`. If a refresh token rotates, VoltDesk stores the new o
 
 Auto mode tries Tesla first, then Home Assistant, then the demo car. Asleep cars keep the last saved report instead of waking themselves.
 
+## Grok bot API
+
+Connections can mint a read-only bearer token for a Grok bot. The bot can ask what the car is doing, how the last week looked, and list recent drives and charges. It cannot wake, unlock, or start the car, and the responses never include Tesla or Home Assistant secrets.
+
+Generate the token on Connections. It is shown once. You can also set `VOLTDESK_API_TOKEN` in `.env.local`. A saved token and an environment token are both accepted. Revoke clears only the saved token.
+
+```bash
+curl -s -H "Authorization: Bearer vd_…" http://localhost:3470/api/v1/summary
+```
+
+| Method | Path | Auth | Returns |
+| --- | --- | --- | --- |
+| GET | `/api/v1` | No | Endpoint list and a tool description. No vehicle data. |
+| GET | `/api/v1/summary` | Bearer | One brief, current state, and the last 7 days. |
+| GET | `/api/v1/vehicle` | Bearer | Current state. |
+| GET | `/api/v1/drives?days=14` | Bearer | Recent drives. `days` is 1–90, and at most 20 are listed. |
+| GET | `/api/v1/charges?days=14` | Bearer | Recent charges, same window. |
+
+Creating or revoking a token is `POST /api/bot/token` and requires the VoltDesk login. Send `{ "revoke": true }` to clear the saved token.
+
 ## Scripts
 
 | Command | Description |

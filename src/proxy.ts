@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   "/api/auth/setup",
   "/api/auth/me",
   "/api/auth/logout",
+  "/api/v1",
 ];
 
 export async function proxy(request: NextRequest) {

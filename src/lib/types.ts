@@ -356,6 +356,8 @@ export interface AppSettings {
   homeLat: number | null;
   homeLng: number | null;
   homeRadiusM: number;
+  /** Read-only bearer token for a Grok bot. Empty when none is saved. */
+  apiToken: string;
 }
 
 export interface PublicSettings {
@@ -375,4 +377,8 @@ export interface PublicSettings {
   homeLng: number | null;
   homeRadiusM: number;
   demoForced: boolean;
+  /** True when a saved token or VOLTDESK_API_TOKEN can call the bot API. */
+  botApiConfigured: boolean;
+  botApiFromFile: boolean;
+  botApiFromEnvironment: boolean;
 }

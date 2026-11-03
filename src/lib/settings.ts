@@ -20,6 +20,7 @@ const DEFAULTS: AppSettings = {
   homeLat: null,
   homeLng: null,
   homeRadiusM: 200,
+  apiToken: "",
 };
 
 function asRegion(value: string | undefined): TeslaRegion {
@@ -114,7 +115,18 @@ export async function getSettings(): Promise<AppSettings> {
     homeLat: homeLat != null && Number.isFinite(homeLat) ? homeLat : null,
     homeLng: homeLng != null && Number.isFinite(homeLng) ? homeLng : null,
     homeRadiusM: Number(file.homeRadiusM ?? env.HOME_RADIUS_M ?? DEFAULTS.homeRadiusM) || 200,
+    apiToken: typeof file.apiToken === "string" ? file.apiToken.trim() : "",
   };
+}
+
+export async function environmentApiToken(): Promise<string> {
+  const env = await readDotEnv();
+  return (env.VOLTDESK_API_TOKEN ?? process.env.VOLTDESK_API_TOKEN ?? "").trim();
+}
+
+export async function acceptedBotTokens(): Promise<string[]> {
+  const [settings, envToken] = await Promise.all([getSettings(), environmentApiToken()]);
+  return [...new Set([settings.apiToken, envToken].map((token) => token.trim()).filter(Boolean))];
 }
 
 export function demoForced(settings: AppSettings): boolean {
@@ -122,7 +134,13 @@ export function demoForced(settings: AppSettings): boolean {
   return settings.source === "demo" || flag === "1" || flag === "true";
 }
 
-export function toPublicSettings(settings: AppSettings): PublicSettings {
+export function toPublicSettings(
+  settings: AppSettings,
+  access?: { fromEnvironment?: boolean },
+): PublicSettings {
+  const fromFile = Boolean(settings.apiToken);
+  const fromEnvironment =
+    access?.fromEnvironment ?? Boolean((process.env.VOLTDESK_API_TOKEN ?? "").trim());
   return {
     source: settings.source,
     homeAssistantUrl: settings.homeAssistantUrl,
@@ -140,6 +158,9 @@ export function toPublicSettings(settings: AppSettings): PublicSettings {
     homeLng: settings.homeLng,
     homeRadiusM: settings.homeRadiusM,
     demoForced: demoForced(settings),
+    botApiConfigured: fromFile || fromEnvironment,
+    botApiFromFile: fromFile,
+    botApiFromEnvironment: fromEnvironment,
   };
 }
 

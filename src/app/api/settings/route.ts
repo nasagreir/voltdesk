@@ -1,7 +1,7 @@
 import { connection, NextResponse } from "next/server";
 import { z } from "zod";
 import { clearDashboardCache } from "@/lib/vehicle-service";
-import { getSettings, saveSettings, toPublicSettings } from "@/lib/settings";
+import { environmentApiToken, getSettings, saveSettings, toPublicSettings } from "@/lib/settings";
 import type { AppSettings } from "@/lib/types";
 
 const bodySchema = z.object({
@@ -24,9 +24,14 @@ const bodySchema = z.object({
   homeRadiusM: z.number().min(20).max(5000),
 });
 
+async function publish(settings: Awaited<ReturnType<typeof getSettings>>) {
+  const fromEnvironment = Boolean(await environmentApiToken());
+  return toPublicSettings(settings, { fromEnvironment });
+}
+
 export async function GET() {
   await connection();
-  return NextResponse.json(toPublicSettings(await getSettings()));
+  return NextResponse.json(await publish(await getSettings()));
 }
 
 export async function POST(request: Request) {
@@ -61,5 +66,5 @@ export async function POST(request: Request) {
   };
   await saveSettings(next);
   clearDashboardCache();
-  return NextResponse.json(toPublicSettings(next));
+  return NextResponse.json(await publish(next));
 }

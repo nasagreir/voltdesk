@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { BotAccessCard } from "@/components/settings/bot-access-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -292,6 +293,8 @@ export function SettingsForm() {
           </Field>
         </CardContent>
       </Card>
+
+      <BotAccessCard settings={settings} onChange={setSettings} />
 
       <Button type="submit">Save connections</Button>
     </form>
