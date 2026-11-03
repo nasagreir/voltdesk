@@ -6,6 +6,15 @@ import type { ChargeCostSummary, ChargeSession } from "@/lib/types";
 const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_LINES = 8;
 
+export function formatChargeCost(charge: Pick<ChargeSession, "costUsd" | "free" | "costSource">): string {
+  if (charge.costSource === "actual") {
+    return charge.costUsd === 0 ? "Free" : money(charge.costUsd);
+  }
+  if (charge.costUsd == null) return "—";
+  if (charge.free || charge.costUsd === 0) return "Free";
+  return `est. ${money(charge.costUsd)}`;
+}
+
 export function summarizeCharges(charges: readonly ChargeSession[], now = new Date()): ChargeCostSummary {
   const recent = charges
     .filter((charge) => {
@@ -22,9 +31,10 @@ export function summarizeCharges(charges: readonly ChargeSession[], now = new Da
       place: /[a-z]/i.test(charge.placeLabel) ? charge.placeLabel : "Not at a saved place",
       label: chargeBillingLabel(charge.billing, charge.free),
       energy: `${charge.energyKwh.toLocaleString("en-US", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} kWh`,
-      cost: charge.free ? "Free" : money(charge.costUsd),
+      cost: formatChargeCost(charge),
       free: charge.free,
       billing: charge.billing,
+      source: charge.costSource,
     })),
     total: priced.length > 0 ? money(totalUsd) : "—",
     totalUsd: priced.length > 0 ? totalUsd : 0,

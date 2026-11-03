@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RouteMap } from "@/components/dashboard/route-map";
+import { formatChargeCost } from "@/lib/charge-cost";
 import { formatDistance, formatFixed, money } from "@/lib/format";
 import { chargeBillingLabel } from "@/lib/sessions";
 import { formatChicagoStamp } from "@/lib/time";
@@ -670,7 +671,7 @@ function ChargeTable({ charges }: { charges: ReportsPayload["charges"] }) {
                 <td className="py-2">{chargeBillingLabel(charge.billing, charge.free)}</td>
                 <td className="py-2">{charge.kind}</td>
                 <td className="py-2">{formatFixed(charge.energyKwh, "kWh", 1)}</td>
-                <td className="py-2">{money(charge.costUsd)}</td>
+                <td className="py-2">{formatChargeCost(charge)}</td>
               </tr>
             ))}
           </tbody>

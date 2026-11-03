@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -89,7 +90,12 @@ export function PlacesBoard() {
         <h1 className="font-heading text-2xl tracking-tight">Places</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           Geofences name drives and set the price of a charge. Each place has its own dollars per kWh and an optional session fee.
-          {persisted ? " These are saved on this server." : " These are the defaults until you save."}
+          {persisted ? " These are saved on this server." : " These are the defaults until you save."}{" "}
+          Home location and the home electricity rate are set on{" "}
+          <Link href="/settings#home-charging" className="underline-offset-2 hover:underline">
+            Connections
+          </Link>
+          .
         </p>
       </div>
       {error && (

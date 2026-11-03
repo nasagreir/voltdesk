@@ -1,3 +1,4 @@
+import { applyChargePrices, type ChargePriceMap } from "./charge-prices";
 import { formatChicago } from "./time";
 import { deriveCharges, deriveDrives, type PlaceHint } from "./sessions";
 import type {
@@ -20,6 +21,7 @@ export function buildHistory(input: {
   vehicleId?: string | null;
   rateUsdPerKwh: number | null;
   home?: PlaceHint;
+  prices?: ChargePriceMap;
   mode: HistoryPayload["mode"];
   source: HistoryPayload["source"];
   units: HistoryPayload["units"];
@@ -37,8 +39,11 @@ export function buildHistory(input: {
   const drives = deriveDrives(vehicleSamples, home).filter(
     (drive) => new Date(drive.endedAt).getTime() >= cutoff,
   );
-  const charges = deriveCharges(vehicleSamples, input.rateUsdPerKwh, home).filter(
-    (charge) => new Date(charge.endedAt).getTime() >= cutoff,
+  const charges = applyChargePrices(
+    deriveCharges(vehicleSamples, input.rateUsdPerKwh, home).filter(
+      (charge) => new Date(charge.endedAt).getTime() >= cutoff,
+    ),
+    input.prices ?? {},
   );
 
   const step = Math.max(1, Math.ceil(inWindow.length / 240));

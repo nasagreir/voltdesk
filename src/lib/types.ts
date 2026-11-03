@@ -135,6 +135,7 @@ export interface ChargeCostLine {
   cost: string;
   free: boolean;
   billing: ChargeBilling;
+  source: "guess" | "actual" | "unknown";
 }
 
 export interface ChargeCostSummary {
@@ -229,6 +230,11 @@ export interface ChargeSession {
   durationMin: number;
   peakPowerKw: number;
   costUsd: number | null;
+  /** Rate-based price before any amount you typed in. */
+  guessUsd: number | null;
+  /** What you paid, when you have entered it. */
+  actualUsd: number | null;
+  costSource: "guess" | "actual" | "unknown";
   billing: ChargeBilling;
   free: boolean;
   placeLabel: string;

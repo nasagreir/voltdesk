@@ -1,3 +1,4 @@
+import { applyChargePrices, readChargePrices } from "@/lib/charge-prices";
 import { buildDemo } from "@/lib/demo";
 import { formatDistance, formatFixed } from "@/lib/format";
 import { readAddresses, resolveFences } from "@/lib/places";
@@ -104,7 +105,10 @@ function compactDrive(drive: DriveSession, unit: DistanceUnit) {
 
 function compactCharge(charge: ChargeSession, unit: DistanceUnit) {
   const added = formatFixed(charge.energyKwh, "kWh", 2);
-  const cost = charge.costUsd == null ? null : `$${charge.costUsd.toFixed(2)}`;
+  const cost =
+    charge.costUsd == null
+      ? null
+      : `$${charge.costUsd.toFixed(2)}${charge.costSource === "guess" ? " (estimate)" : ""}`;
   const line = `${charge.kind} charge at ${charge.placeLabel}, ${added} added${cost ? `, ${cost}` : ""}, ${Math.round(charge.durationMin)} min${charge.inProgress ? ", in progress" : ""}`;
   return {
     id: charge.id,
@@ -141,9 +145,10 @@ async function sessions(days: number) {
   const scoped = samples.filter((sample) => !vehicle || sample.vehicleId === vehicle.id);
   const { fences } = await resolveFences(settings, dashboard.mode);
   const addresses = await readAddresses();
+  const prices = await readChargePrices().catch(() => ({}));
   const drives = since(deriveDrives(scoped, fences, addresses), days);
   const charges = since(
-    deriveCharges(scoped, settings.electricityRateUsd, fences, addresses),
+    applyChargePrices(deriveCharges(scoped, settings.electricityRateUsd, fences, addresses), prices),
     days,
   );
   return { settings, dashboard, vehicle, drives, charges };

@@ -14,6 +14,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatChargeCost } from "@/lib/charge-cost";
 import { formatDistance, formatFixed, money } from "@/lib/format";
 import { formatChicagoStamp } from "@/lib/time";
 import type { HistoryPayload, HistoryRange } from "@/lib/types";
@@ -237,7 +238,7 @@ export function HistoryBoard({
                             {Math.round(charge.startBattery)}→{Math.round(charge.endBattery)}%
                           </td>
                           <td className="py-2">{formatFixed(charge.peakPowerKw, "kW", 1)}</td>
-                          <td className="py-2">{money(charge.costUsd)}</td>
+                          <td className="py-2">{formatChargeCost(charge)}</td>
                         </tr>
                       ))}
                     </tbody>

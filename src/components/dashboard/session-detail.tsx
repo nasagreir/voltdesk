@@ -12,11 +12,98 @@ import {
   YAxis,
 } from "recharts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { TripMap } from "@/components/dashboard/trip-map";
+import { formatChargeCost } from "@/lib/charge-cost";
 import { formatDistance, formatFixed, formatTemp, money } from "@/lib/format";
 import { formatChicagoStamp } from "@/lib/time";
 import type { ChargeSession, DistanceUnit, DriveSession, TempUnit, VehicleSample } from "@/lib/types";
+
+function ChargeAmountForm({
+  charge,
+  onSaved,
+}: {
+  charge: ChargeSession;
+  onSaved: (charge: ChargeSession) => void;
+}) {
+  const [amount, setAmount] = useState(charge.actualUsd == null ? "" : charge.actualUsd.toFixed(2));
+  const [pending, setPending] = useState<"save" | "clear" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const guess =
+    charge.guessUsd == null
+      ? "There is no rate for this session, so it stays out of the total until you enter what you paid."
+      : charge.guessUsd === 0
+        ? "The guess is free until you enter what you paid."
+        : `The guess is ${money(charge.guessUsd)} until you enter what you paid.`;
+
+  async function submit(next: number | null) {
+    setPending(next == null ? "clear" : "save");
+    setError(null);
+    try {
+      const response = await fetch(`/api/charges/${encodeURIComponent(charge.id)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ amount: next }),
+      });
+      const body = (await response.json()) as { error?: string; charge?: ChargeSession };
+      if (!response.ok || !body.charge) throw new Error(body.error ?? "Could not save the amount");
+      onSaved(body.charge);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the amount");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Actual amount</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">{guess}</p>
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const value = Number(amount);
+            if (amount.trim() === "" || !Number.isFinite(value) || value < 0) {
+              setError("Enter a dollar amount, or use the guess.");
+              return;
+            }
+            void submit(value);
+          }}
+        >
+          <div className="grid gap-1.5 text-sm">
+            <Label htmlFor="charge-amount">Amount paid (USD)</Label>
+            <Input
+              id="charge-amount"
+              inputMode="decimal"
+              className="w-32"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+          </div>
+          <Button type="submit" disabled={pending != null}>
+            {pending === "save" ? "Saving…" : "Save"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending != null || charge.costSource !== "actual"}
+            onClick={() => void submit(null)}
+          >
+            {pending === "clear" ? "Clearing…" : "Use the guess"}
+          </Button>
+        </form>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </CardContent>
+    </Card>
+  );
+}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -137,7 +224,7 @@ export function SessionDetail({ kind, id }: { kind: "drive" | "charge"; id: stri
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Added" value={formatFixed(charge.energyKwh, "kWh", 2)} />
           <Stat label="Used" value={formatFixed(charge.energyUsedKwh, "kWh", 2)} />
-          <Stat label="Cost" value={money(charge.costUsd)} />
+          <Stat label="Cost" value={formatChargeCost(charge)} />
           <Stat label="Efficiency" value={charge.efficiencyPct == null ? "—" : `${Math.round(charge.efficiencyPct)}%`} />
           <Stat label="Battery" value={`${Math.round(charge.startBattery)}→${Math.round(charge.endBattery)}%`} />
           <Stat label="Range added" value={formatDistance(charge.rangeAddedMi, units.distance, 0)} />
@@ -148,6 +235,14 @@ export function SessionDetail({ kind, id }: { kind: "drive" | "charge"; id: stri
           <Stat label="Phases" value={charge.phases == null ? "—" : String(charge.phases)} />
           <Stat label="Outside" value={formatTemp(charge.outsideTempC, units.temp)} />
         </div>
+      )}
+
+      {charge && (
+        <ChargeAmountForm
+          key={`${charge.id}-${charge.costSource}-${charge.costUsd}`}
+          charge={charge}
+          onSaved={setCharge}
+        />
       )}
 
       {chart.length > 1 && (

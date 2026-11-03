@@ -29,30 +29,32 @@ export async function writeFences(fences: Geofence[]) {
   await writeJson(fencesPath(), fences);
 }
 
+export function applyHomeSettings(fences: Geofence[], settings: AppSettings): Geofence[] {
+  if (settings.homeLat == null || settings.homeLng == null) return fences;
+  const previous = fences.find((fence) => fence.id === "home");
+  const home: Geofence = {
+    id: "home",
+    name: settings.homeLabel.trim() || "Home",
+    lat: settings.homeLat,
+    lng: settings.homeLng,
+    radiusM: settings.homeRadiusM,
+    costPerKwh: settings.electricityRateUsd,
+    sessionFee: previous?.sessionFee ?? 0,
+  };
+  return [home, ...fences.filter((fence) => fence.id !== "home")];
+}
+
 export async function resolveFences(
   settings: AppSettings,
   mode: ConnectionMode,
 ): Promise<{ fences: Geofence[]; persisted: boolean }> {
   const saved = await readSavedFences();
-  if (saved) return { fences: saved, persisted: true };
+  if (saved) return { fences: applyHomeSettings(saved, settings), persisted: true };
   if (mode === "demo" || settings.source === "demo") {
-    return { fences: DEMO_FENCES, persisted: false };
+    return { fences: applyHomeSettings(DEMO_FENCES, settings), persisted: false };
   }
   if (settings.homeLat != null && settings.homeLng != null) {
-    return {
-      persisted: false,
-      fences: [
-        {
-          id: "home",
-          name: settings.homeLabel || "Home",
-          lat: settings.homeLat,
-          lng: settings.homeLng,
-          radiusM: settings.homeRadiusM,
-          costPerKwh: settings.electricityRateUsd,
-          sessionFee: 0,
-        },
-      ],
-    };
+    return { fences: applyHomeSettings([], settings), persisted: false };
   }
   return { fences: [], persisted: false };
 }

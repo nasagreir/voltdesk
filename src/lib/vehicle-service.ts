@@ -9,6 +9,7 @@ import { deriveCharges, deriveDrives } from "@/lib/sessions";
 import { tripSummary, tripsOverlapping } from "@/lib/trips";
 import { isLiveData, pollSeconds } from "@/lib/live-data";
 import { summarizeCharges } from "@/lib/charge-cost";
+import { applyChargePrices, readChargePrices } from "@/lib/charge-prices";
 import { estimateTripRange, presentTripRange } from "@/lib/trip-range";
 import { demoForced, getSettings } from "@/lib/settings";
 import { fetchTeslaVehicles, TeslaRequestError, wakeTeslaVehicle } from "@/lib/tesla-fleet";
@@ -81,7 +82,11 @@ async function withTripRanges(
   } catch {
     fences = [];
   }
-  const charges = samples.length > 0 ? deriveCharges(samples, settings.electricityRateUsd, fences) : [];
+  const prices = await readChargePrices().catch(() => ({}));
+  const charges =
+    samples.length > 0
+      ? applyChargePrices(deriveCharges(samples, settings.electricityRateUsd, fences), prices)
+      : [];
   return views.map((view) => ({
     ...view,
     chargeCosts: summarizeCharges(
@@ -296,6 +301,7 @@ async function contextFor(vehicleId?: string | null) {
 export async function getHistory(range: HistoryRange, vehicleId?: string | null): Promise<HistoryPayload> {
   const { settings, dashboard, now, selected, fences, samples } = await contextFor(vehicleId);
   const home = fences.length > 0 ? fences : (homeOf(settings) ?? (dashboard.mode === "demo" ? DEMO_HOME : null));
+  const prices = await readChargePrices().catch(() => ({}));
   return buildHistory({
     samples,
     range,
@@ -303,6 +309,7 @@ export async function getHistory(range: HistoryRange, vehicleId?: string | null)
     vehicleId: selected,
     rateUsdPerKwh: settings.electricityRateUsd,
     home,
+    prices,
     mode: dashboard.mode,
     source: dashboard.source,
     units: { distance: settings.distanceUnit, temp: settings.tempUnit },
@@ -340,6 +347,7 @@ export async function getReports(days: number, vehicleId?: string | null): Promi
   } catch {
     addresses = await readAddresses().catch(() => ({}));
   }
+  const prices = await readChargePrices().catch(() => ({}));
   return buildReports({
     samples,
     now,
@@ -348,6 +356,7 @@ export async function getReports(days: number, vehicleId?: string | null): Promi
     rateUsdPerKwh: settings.electricityRateUsd,
     places: fences,
     addresses,
+    prices,
     units: { distance: settings.distanceUnit, temp: settings.tempUnit },
     mode: dashboard.mode,
     source: dashboard.source,
@@ -391,7 +400,11 @@ export async function getCharge(id: string): Promise<{
 } | null> {
   const { settings, selected, fences, samples } = await contextFor(null);
   const addresses = await readAddresses();
-  const charges = deriveCharges(samples, settings.electricityRateUsd, fences, addresses);
+  const prices = await readChargePrices().catch(() => ({}));
+  const charges = applyChargePrices(
+    deriveCharges(samples, settings.electricityRateUsd, fences, addresses),
+    prices,
+  );
   const charge = charges.find((item) => item.id === id && (!selected || item.vehicleId === selected));
   if (!charge) return null;
   return {

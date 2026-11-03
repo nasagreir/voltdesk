@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { summarizeCharges } from "./charge-cost";
-import { formatDoneBy } from "./format";
+import { formatChargeCost, summarizeCharges } from "./charge-cost";
+import { applyChargePrices } from "./charge-prices";
+import { formatDoneBy, money } from "./format";
+import { applyHomeSettings } from "./places";
 import { deriveCharges } from "./sessions";
 import { chicagoDate } from "./time";
-import type { Geofence, VehicleSample } from "./types";
+import type { AppSettings, Geofence, VehicleSample } from "./types";
 
 const NOW = new Date("2026-11-03T18:00:00.000Z");
 
@@ -69,5 +71,61 @@ describe("charge billing", () => {
     assert.equal(formatDoneBy(updated.toISOString(), 48, true), "8:00 AM");
     assert.equal(formatDoneBy(updated.toISOString(), 48, false), "—");
     assert.equal(formatDoneBy(updated.toISOString(), 0, true), "Now");
+  });
+
+  it("keeps the guess until an actual amount replaces it", () => {
+    const charges = deriveCharges(
+      [
+        sample({ at: "2026-11-02T06:00:00.000Z", batteryPercent: 40, energyAddedKwh: 0.2 }),
+        sample({ at: "2026-11-02T08:00:00.000Z", chargingState: "Complete", batteryPercent: 80, energyAddedKwh: 10, chargerPowerKw: 0 }),
+      ],
+      0.14,
+      fences,
+    );
+    const home = charges[0];
+    assert.ok(home);
+    const untouched = applyChargePrices([home], {});
+    assert.equal(untouched[0]?.costSource, "guess");
+    assert.equal(untouched[0]?.actualUsd, null);
+    assert.equal(formatChargeCost(untouched[0]!), `est. ${money(home.costUsd)}`);
+    const priced = applyChargePrices([home], { [home.id]: 7.5 });
+    assert.equal(priced[0]?.costUsd, 7.5);
+    assert.equal(priced[0]?.actualUsd, 7.5);
+    assert.equal(priced[0]?.guessUsd, home.costUsd);
+    assert.equal(priced[0]?.costSource, "actual");
+    assert.equal(priced[0]?.free, false);
+    assert.equal(formatChargeCost(priced[0]!), "$7.50");
+    const free = applyChargePrices([home], { [home.id]: 0 });
+    assert.equal(free[0]?.costSource, "actual");
+    assert.equal(free[0]?.free, true);
+    assert.equal(formatChargeCost(free[0]!), "Free");
+    const summary = summarizeCharges(priced, NOW);
+    assert.equal(summary.lines[0]?.source, "actual");
+    assert.equal(summary.totalUsd, 7.5);
+  });
+});
+
+describe("home charging settings", () => {
+  it("replaces the home circle and rate and leaves other places alone", () => {
+    const saved: Geofence[] = [
+      { id: "home", name: "Old", lat: 1, lng: 2, radiusM: 50, costPerKwh: 0.2, sessionFee: 1.25 },
+      { id: "work", name: "Work", lat: 41.8858, lng: -87.6324, radiusM: 200, costPerKwh: 0, sessionFee: 0 },
+    ];
+    const unchanged = applyHomeSettings(saved, { homeLat: null, homeLng: -87 } as AppSettings);
+    assert.equal(unchanged[0]?.lat, 1);
+    const next = applyHomeSettings(saved, {
+      homeLat: 41.95,
+      homeLng: -87.67,
+      homeLabel: "House",
+      homeRadiusM: 180,
+      electricityRateUsd: 0.11,
+    } as AppSettings);
+    const home = next.find((fence) => fence.id === "home");
+    assert.equal(home?.name, "House");
+    assert.equal(home?.lat, 41.95);
+    assert.equal(home?.costPerKwh, 0.11);
+    assert.equal(home?.radiusM, 180);
+    assert.equal(home?.sessionFee, 1.25);
+    assert.equal(next.find((fence) => fence.id === "work")?.name, "Work");
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { BatteryDial } from "@/components/dashboard/battery-dial";
 import { CarPortrait } from "@/components/dashboard/car-portrait";
@@ -262,14 +263,19 @@ export function Garage() {
               ) : (
                 <ul className="divide-y divide-white/10">
                   {vehicle.chargeCosts.lines.map((line) => (
-                    <li key={line.id} className="flex items-start justify-between gap-3 py-2 text-sm">
-                      <div className="min-w-0">
-                        <div>{line.label}</div>
-                        <div className="text-xs break-words text-muted-foreground">
-                          {line.when} · {line.place} · {line.energy}
+                    <li key={line.id}>
+                      <Link
+                        href={`/charges/${encodeURIComponent(line.id)}`}
+                        className="flex items-start justify-between gap-3 py-2 text-sm hover:text-foreground"
+                      >
+                        <div className="min-w-0">
+                          <div>{line.label}</div>
+                          <div className="text-xs break-words text-muted-foreground">
+                            {line.when} · {line.place} · {line.energy}
+                          </div>
                         </div>
-                      </div>
-                      <div className="shrink-0">{line.cost}</div>
+                        <div className="shrink-0">{line.cost}</div>
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -282,10 +288,16 @@ export function Garage() {
               {vehicle.chargeCosts.unpriced > 0 && (
                 <p className="text-xs text-muted-foreground">
                   {vehicle.chargeCosts.unpriced === 1
-                    ? "1 Supercharger session stays out of the total. Tesla does not send that price."
-                    : `${vehicle.chargeCosts.unpriced} Supercharger sessions stay out of the total. Tesla does not send those prices.`}
+                    ? "1 Supercharger session stays out of the total until you enter the amount. Tesla does not send that price."
+                    : `${vehicle.chargeCosts.unpriced} Supercharger sessions stay out of the total until you enter the amounts. Tesla does not send those prices.`}
                 </p>
               )}
+              <p className="text-xs text-muted-foreground">
+                <Link href="/settings#home-charging" className="underline-offset-2 hover:underline">
+                  Home rate and location
+                </Link>{" "}
+                set the guess for charges at home. Open a charge to enter what you actually paid.
+              </p>
             </CardContent>
           )}
         </Card>

@@ -272,38 +272,14 @@ export function SettingsForm() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="home-charging" className="scroll-mt-24">
         <CardHeader>
-          <CardTitle>Units and home</CardTitle>
+          <CardTitle>Home charging</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <Field label="Distance">
-            <select
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
-              value={settings.distanceUnit}
-              onChange={(event) =>
-                setSettings({
-                  ...settings,
-                  distanceUnit: event.target.value as PublicSettings["distanceUnit"],
-                })
-              }
-            >
-              <option value="mi">Miles</option>
-              <option value="km">Kilometers</option>
-            </select>
-          </Field>
-          <Field label="Temperature">
-            <select
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
-              value={settings.tempUnit}
-              onChange={(event) =>
-                setSettings({ ...settings, tempUnit: event.target.value as PublicSettings["tempUnit"] })
-              }
-            >
-              <option value="F">Fahrenheit</option>
-              <option value="C">Celsius</option>
-            </select>
-          </Field>
+          <p className="text-sm text-muted-foreground sm:col-span-2">
+            Charges inside this circle use this electricity cost until you enter a real amount on that charge.
+          </p>
           <Field label="Electricity rate (USD / kWh)">
             <Input
               type="number"
@@ -352,6 +328,41 @@ export function SettingsForm() {
                 setSettings({ ...settings, homeRadiusM: Number(event.target.value) })
               }
             />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Units</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <Field label="Distance">
+            <select
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
+              value={settings.distanceUnit}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  distanceUnit: event.target.value as PublicSettings["distanceUnit"],
+                })
+              }
+            >
+              <option value="mi">Miles</option>
+              <option value="km">Kilometers</option>
+            </select>
+          </Field>
+          <Field label="Temperature">
+            <select
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
+              value={settings.tempUnit}
+              onChange={(event) =>
+                setSettings({ ...settings, tempUnit: event.target.value as PublicSettings["tempUnit"] })
+              }
+            >
+              <option value="F">Fahrenheit</option>
+              <option value="C">Celsius</option>
+            </select>
           </Field>
         </CardContent>
       </Card>

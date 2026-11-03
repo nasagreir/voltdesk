@@ -1,3 +1,4 @@
+import { applyChargePrices, type ChargePriceMap } from "./charge-prices";
 import { formatChicagoStamp, chicagoParts } from "./time";
 import {
   deriveCharges,
@@ -64,6 +65,7 @@ export function buildReports(input: {
   rateUsdPerKwh: number | null;
   places?: PlaceHint;
   addresses?: Record<string, string>;
+  prices?: ChargePriceMap;
   units: ReportsPayload["units"];
   mode: ReportsPayload["mode"];
   source: ReportsPayload["source"];
@@ -81,12 +83,12 @@ export function buildReports(input: {
   const drives = deriveDrives(vehicleSamples, input.places, input.addresses).filter(
     (drive) => new Date(drive.endedAt).getTime() >= cutoff,
   );
-  const charges = deriveCharges(
-    vehicleSamples,
-    input.rateUsdPerKwh,
-    input.places,
-    input.addresses,
-  ).filter((charge) => new Date(charge.endedAt).getTime() >= cutoff);
+  const charges = applyChargePrices(
+    deriveCharges(vehicleSamples, input.rateUsdPerKwh, input.places, input.addresses).filter(
+      (charge) => new Date(charge.endedAt).getTime() >= cutoff,
+    ),
+    input.prices ?? {},
+  );
 
   const distanceMi = drives.reduce((sum, drive) => sum + drive.distanceMi, 0);
   const driveMinutes = drives.reduce((sum, drive) => sum + drive.durationMin, 0);
