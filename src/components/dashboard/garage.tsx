@@ -180,18 +180,43 @@ export function Garage() {
       />
 
       <div className="duo-fold grid gap-4 short:grid-cols-[8.5rem_minmax(0,1fr)] short:gap-2 min-[900px]:grid-cols-[13rem_minmax(0,1fr)]">
-        <Card>
+        <Card className="min-w-0">
           <CardContent className="pt-6 short:px-3 short:pt-3">
             <BatteryDial
               percent={vehicle.batteryPercent}
               limit={vehicle.chargeLimitPercent}
+              charging={vehicle.state === "charging"}
+              power={vehicle.chargerPowerKw > 0 ? vehicle.display.chargerPower : null}
               label="battery"
-              range={vehicle.display.ratedRange}
+              range={vehicle.tripRange?.rangeMi != null ? vehicle.tripRange.range : vehicle.display.ratedRange}
+              rangeNote={vehicle.tripRange?.rangeMi != null ? "from trips" : "rated"}
             />
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              Estimated {vehicle.display.estRange}
-              {vehicle.idealRangeMi != null ? ` · ideal ${vehicle.display.idealRange}` : ""} · limit {vehicle.display.chargeLimit}
-            </p>
+            <div className="mt-2 space-y-1 px-1 text-center text-xs leading-snug break-words text-muted-foreground">
+              {vehicle.state === "charging" && (
+                <p className="text-emerald-300">
+                  Charging
+                  {vehicle.chargerPowerKw > 0 ? ` at ${vehicle.display.chargerPower}` : ""}
+                  {vehicle.chargeRateMph > 0 ? ` · ${vehicle.display.chargeRate}` : ""}
+                  {vehicle.minutesToFull != null ? ` · ${vehicle.display.timeToFull} to the limit` : ""}
+                </p>
+              )}
+              {vehicle.tripRange?.rangeMi != null ? (
+                <p>
+                  {vehicle.tripRange.consumption} over {vehicle.tripRange.trips}{" "}
+                  {vehicle.tripRange.trips === 1 ? "trip" : "trips"}, {vehicle.tripRange.distance}
+                  {vehicle.tripRange.atLimitMi != null &&
+                  Math.abs(vehicle.tripRange.atLimitMi - vehicle.tripRange.rangeMi) >= 1
+                    ? ` · ${vehicle.tripRange.atLimit} at the ${vehicle.display.chargeLimit} limit`
+                    : ""}
+                </p>
+              ) : (
+                <p>Not enough recent trips for a personal range yet.</p>
+              )}
+              <p>
+                Rated {vehicle.display.ratedRange} · Tesla estimate {vehicle.display.estRange}
+                {vehicle.idealRangeMi != null ? ` · ideal ${vehicle.display.idealRange}` : ""}
+              </p>
+            </div>
           </CardContent>
         </Card>
         <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-4 min-[900px]:gap-3 short:gap-1.5">

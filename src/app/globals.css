@@ -6,6 +6,26 @@
 @custom-variant short (@media (max-height: 430px));
 @custom-variant book (@media (horizontal-viewport-segments: 2));
 
+@keyframes voltdesk-charge {
+  0%,
+  100% {
+    stroke-opacity: 1;
+  }
+  50% {
+    stroke-opacity: 0.4;
+  }
+}
+
+.charge-arc {
+  animation: voltdesk-charge 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .charge-arc {
+    animation: none;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

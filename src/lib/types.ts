@@ -105,8 +105,21 @@ export interface VehicleDisplay {
   elevation: string;
 }
 
+export interface TripRange {
+  rangeMi: number | null;
+  atLimitMi: number | null;
+  whPerMi: number | null;
+  trips: number;
+  distanceMi: number;
+  range: string;
+  atLimit: string;
+  consumption: string;
+  distance: string;
+}
+
 export interface VehicleView extends Vehicle {
   display: VehicleDisplay;
+  tripRange?: TripRange;
 }
 
 export interface DashboardPayload {

@@ -8,6 +8,7 @@ import { buildReports } from "@/lib/reports";
 import { deriveCharges, deriveDrives } from "@/lib/sessions";
 import { tripSummary, tripsOverlapping } from "@/lib/trips";
 import { isLiveData, pollSeconds } from "@/lib/live-data";
+import { estimateTripRange, presentTripRange } from "@/lib/trip-range";
 import { demoForced, getSettings } from "@/lib/settings";
 import { fetchTeslaVehicles, TeslaRequestError, wakeTeslaVehicle } from "@/lib/tesla-fleet";
 import type {
@@ -57,6 +58,38 @@ function homeOf(settings: AppSettings) {
 function presentAll(vehicles: Vehicle[], settings: AppSettings) {
   const units = { distance: settings.distanceUnit, temp: settings.tempUnit };
   return vehicles.map((vehicle) => presentVehicle(vehicle, units));
+}
+
+async function withTripRanges(
+  vehicles: Vehicle[],
+  settings: AppSettings,
+  mode: DashboardPayload["mode"],
+) {
+  const views = presentAll(vehicles, settings);
+  const now = new Date();
+  let samples: VehicleSample[] = [];
+  try {
+    samples = mode === "demo" ? buildDemo(now).samples : await readSamples();
+  } catch {
+    samples = [];
+  }
+  const drives = samples.length > 0 ? deriveDrives(samples) : [];
+  return views.map((view) => ({
+    ...view,
+    tripRange: presentTripRange(
+      estimateTripRange(
+        {
+          drives: drives.filter((drive) => drive.vehicleId === view.id),
+          batteryPercent: view.batteryPercent,
+          chargeLimitPercent: view.chargeLimitPercent,
+          packKwh: view.packKwh,
+          now,
+        },
+        now,
+      ),
+      settings.distanceUnit,
+    ),
+  }));
 }
 
 async function fromTesla(settings: AppSettings): Promise<Vehicle[]> {
@@ -150,7 +183,7 @@ async function compose(force = false): Promise<DashboardPayload> {
               message: live.message,
               fetchedAt: now,
               units,
-              vehicles: presentAll(live.vehicles, settings),
+              vehicles: await withTripRanges(live.vehicles, settings, "live"),
               pollIntervalSeconds: suggestedPoll(live.vehicles, settings),
               ...liveFields(settings),
             };
@@ -166,9 +199,10 @@ async function compose(force = false): Promise<DashboardPayload> {
                 message: `${error instanceof Error ? error.message : "Live data failed."} Showing the last saved report.`,
                 fetchedAt: now,
                 units,
-                vehicles: presentAll(
+                vehicles: await withTripRanges(
                   saved.map((vehicle) => ({ ...vehicle, stale: true })),
                   settings,
+                  "live",
                 ),
                 pollIntervalSeconds: suggestedPoll(saved, settings),
                 ...liveFields(settings),
@@ -183,7 +217,7 @@ async function compose(force = false): Promise<DashboardPayload> {
               message: `${error instanceof Error ? error.message : "Live data failed."} Showing the demo Model Y until the connection works.`,
               fetchedAt: now,
               units,
-              vehicles: presentAll([demo.vehicle], settings),
+              vehicles: await withTripRanges([demo.vehicle], settings, "demo"),
               pollIntervalSeconds: suggestedPoll([demo.vehicle], settings),
               ...liveFields(settings),
             };
@@ -200,7 +234,7 @@ async function compose(force = false): Promise<DashboardPayload> {
         message: error instanceof Error ? error.message : "VoltDesk could not load the car.",
         fetchedAt: now,
         units,
-        vehicles: presentAll([demo.vehicle], settings),
+        vehicles: await withTripRanges([demo.vehicle], settings, "demo"),
         pollIntervalSeconds: suggestedPoll([demo.vehicle], settings),
         ...liveFields(settings),
       };
@@ -214,7 +248,7 @@ async function compose(force = false): Promise<DashboardPayload> {
         "Demo mode. This is a sample Model Y in Chicago, not your car. Add a Tesla Fleet token or Home Assistant on Connections.",
       fetchedAt: now,
       units,
-      vehicles: presentAll([demo.vehicle], settings),
+      vehicles: await withTripRanges([demo.vehicle], settings, "demo"),
       pollIntervalSeconds: suggestedPoll([demo.vehicle], settings),
       ...liveFields(settings),
     };
