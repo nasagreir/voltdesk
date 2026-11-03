@@ -31,6 +31,7 @@ export function CarPortrait({
   const [file, setFile] = useState<AppearanceFile>(EMPTY);
   const [ready, setReady] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
 
@@ -83,6 +84,7 @@ export function CarPortrait({
       const body = (await response.json()) as AppearanceFile & { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Could not save that paint");
       setFile({ colors: body.colors ?? {}, models: body.models ?? {} });
+      setColorOpen(false);
     } catch (err) {
       setFile(previous);
       setError(err instanceof Error ? err.message : "Could not save that paint");
@@ -111,6 +113,7 @@ export function CarPortrait({
             {resolved.modelId ? "That photo is not in this build." : "Pick the model to show a photo."}
           </div>
         )}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#09090b] to-transparent short:h-6" />
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/10 px-3 py-3 short:py-2">
         <div className="min-w-0">
@@ -121,27 +124,15 @@ export function CarPortrait({
             {reportedColor ? ` · car reports ${reportedColor}` : ""}
           </p>
         </div>
-        {paints.length > 0 && (
-          <div className="flex flex-wrap gap-2" role="group" aria-label={`${modelName} paint`}>
-            {paints.map((item) => {
-              const selected = item.id === resolved.colorId;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-label={item.name}
-                  aria-pressed={selected}
-                  title={item.name}
-                  disabled={!ready || !resolved.modelId}
-                  onClick={() => resolved.modelId && void choose(resolved.modelId, item.id)}
-                  className={`size-7 rounded-full border border-white/40 short:size-6 ${
-                    selected ? "ring-2 ring-white ring-offset-2 ring-offset-[#09090b]" : ""
-                  }`}
-                  style={{ backgroundColor: item.hex }}
-                />
-              );
-            })}
-          </div>
+        {resolved.modelId && paints.length > 0 && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            aria-expanded={colorOpen}
+            onClick={() => setColorOpen((open) => !open)}
+          >
+            {colorOpen ? "Hide colors" : "Change color"}
+          </button>
         )}
         {resolved.modelId && (
           <button
@@ -165,6 +156,28 @@ export function CarPortrait({
               {item.name}
             </Button>
           ))}
+        </div>
+      )}
+      {colorOpen && paints.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-3 pb-3" role="group" aria-label={`${modelName} paint`}>
+          {paints.map((item) => {
+            const selected = item.id === resolved.colorId;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={item.name}
+                aria-pressed={selected}
+                title={item.name}
+                disabled={!ready || !resolved.modelId}
+                onClick={() => resolved.modelId && void choose(resolved.modelId, item.id)}
+                className={`size-7 rounded-full border border-white/40 short:size-6 ${
+                  selected ? "ring-2 ring-white ring-offset-2 ring-offset-[#09090b]" : ""
+                }`}
+                style={{ backgroundColor: item.hex }}
+              />
+            );
+          })}
         </div>
       )}
       {error && <p className="px-3 pb-3 text-sm text-red-300">{error}</p>}
