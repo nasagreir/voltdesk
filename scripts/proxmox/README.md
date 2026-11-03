@@ -36,7 +36,7 @@ bash /root/voltdesk/proxmox-install.sh
 
 ## After install
 
-Open `http://<container-ip>:3470` and create your username and password on the first-start page.
+Open `http://<container-ip>:3470` and create your username and password on the first-start page. The installer does not set a root password or a VoltDesk login. The shell is `pct enter <CTID>` from the Proxmox host.
 
 ```bash
 pct enter <CTID>

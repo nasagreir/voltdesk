@@ -1,5 +1,6 @@
 #!/bin/sh
 # Persist a signing secret in the data volume when the operator did not set one.
+# This is not a login. The first browser visit creates the VoltDesk username and password.
 # Docker injects HOSTNAME as the container name; Next.js would bind only to that
 # name, so the listen address is set here before the server starts.
 set -eu

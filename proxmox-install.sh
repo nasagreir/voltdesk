@@ -437,12 +437,8 @@ gather() {
 }
 
 create_ct() {
-  local template password="" attempt id create_log
+  local template attempt id create_log
   template="$(pick_template "${TEMPLATE_STORAGE}")"
-  password=""
-  if [[ ! -f /root/.ssh/authorized_keys ]]; then
-    password="$(openssl rand -base64 18)"
-  fi
 
   id="${CTID}"
   for attempt in $(seq 1 40); do
@@ -468,10 +464,9 @@ create_ct() {
       --ostype debian
       --start 0
     )
+    # No root password. The host shell is `pct enter`. Copy host keys when they exist.
     if [[ -f /root/.ssh/authorized_keys ]]; then
       args+=(--ssh-public-keys /root/.ssh/authorized_keys)
-    else
-      args+=(--password "${password}")
     fi
 
     create_log="$(mktemp)"
@@ -479,7 +474,6 @@ create_ct() {
       rm -f "${create_log}"
       CTID="${id}"
       msg_ok "CT ${CTID} created"
-      [[ -z "${password}" ]] || msg_warn "CT root password: ${password}"
       return 0
     fi
 
@@ -500,7 +494,16 @@ create_ct() {
 start_ct() {
   msg_info "Starting CT ${CTID}"
   pct start "${CTID}"
-  local i
+  local i locked=0
+  for i in $(seq 1 30); do
+    if pct exec "${CTID}" -- passwd -l root >/dev/null 2>&1; then
+      msg_ok "Container root has no password. Shell: pct enter ${CTID}"
+      locked=1
+      break
+    fi
+    sleep 1
+  done
+  [[ "${locked}" -eq 1 ]] || msg_warn "Could not lock the container root password. Shell: pct enter ${CTID}"
   for i in $(seq 1 90); do
     if pct exec "${CTID}" -- bash -c 'hostname -I | grep -qE "[0-9]+\.[0-9]+"' 2>/dev/null; then
       msg_ok "Network is up"

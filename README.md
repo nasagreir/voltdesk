@@ -51,7 +51,7 @@ git clone https://github.com/nasagreir/voltdesk.git /root/voltdesk
 bash /root/voltdesk/proxmox-install.sh
 ```
 
-Open `http://<container-ip>:3470` and create your username and password. Nothing is auto-provisioned.
+Open `http://<container-ip>:3470` and create your username and password. The installer does not set a container root password or a VoltDesk login. From the Proxmox host, the shell is `pct enter CTID`.
 
 Push this project to `nasagreir/voltdesk` (or set `VOLTDESK_REPO`) before the curl one-liner can clone it. Until then, run the installer from a local clone.
 

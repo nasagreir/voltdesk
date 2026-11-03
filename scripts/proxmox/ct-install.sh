@@ -56,6 +56,7 @@ install_node() {
 }
 
 ensure_user() {
+  # Service account only. No login password, and no VoltDesk user, is created here.
   if ! id -u "${APP_USER}" >/dev/null 2>&1; then
     msg "Creating service user ${APP_USER}"
     useradd --system --home-dir "${APP_DIR}" --shell /usr/sbin/nologin "${APP_USER}"
