@@ -121,6 +121,8 @@ export interface TripRange {
 }
 
 export interface VehicleView extends Vehicle {
+  /** Name the car reported, before any name you typed. */
+  reportedName: string;
   display: VehicleDisplay;
   tripRange?: TripRange;
   chargeCosts?: ChargeCostSummary;

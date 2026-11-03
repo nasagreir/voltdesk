@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type { DashboardPayload, VehicleView } from "@/lib/types";
 
 const STATE_LABEL: Record<VehicleView["state"], string> = {
@@ -26,6 +27,94 @@ function Fact({ label, value }: { label: string; value: string }) {
     <div className="min-w-0 rounded-xl bg-white/5 px-3 py-3 short:px-2 short:py-2">
       <div className="text-[11px] tracking-wide text-muted-foreground uppercase">{label}</div>
       <div className="mt-1 font-heading text-base leading-tight break-words min-[420px]:text-lg short:text-sm">{value}</div>
+    </div>
+  );
+}
+
+function VehicleTitle({ vehicle, onSaved }: { vehicle: VehicleView; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(vehicle.name);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const custom = vehicle.name !== vehicle.reportedName;
+
+  async function save(name: string | null) {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/vehicles/${encodeURIComponent(vehicle.id)}/name`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "Could not save the name");
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the name");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div>
+      {editing ? (
+        <form
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const next = draft.trim();
+            if (!next) {
+              setError("Enter a name, or use the name the car reports.");
+              return;
+            }
+            void save(next);
+          }}
+        >
+          <Input
+            aria-label="Car name"
+            className="w-48 max-w-full"
+            maxLength={40}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+          <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+          {custom && (
+            <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => void save(null)}>
+              Use {vehicle.reportedName}
+            </Button>
+          )}
+        </form>
+      ) : (
+        <h1 className="font-heading text-2xl tracking-tight short:text-xl min-[900px]:text-3xl">
+          {vehicle.name}
+          <span className="text-muted-foreground"> · {vehicle.model}</span>
+        </h1>
+      )}
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {!editing && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            onClick={() => {
+              setDraft(vehicle.name);
+              setError(null);
+              setEditing(true);
+            }}
+          >
+            Rename
+          </button>
+        )}
+        {custom && <p className="text-xs text-muted-foreground">The car reports {vehicle.reportedName}.</p>}
+      </div>
+      {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
     </div>
   );
 }
@@ -135,10 +224,7 @@ export function Garage() {
           <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
             {payload.mode === "demo" ? "Demo" : "Live"} · {payload.source}
           </p>
-          <h1 className="font-heading text-2xl tracking-tight short:text-xl min-[900px]:text-3xl">
-            {vehicle.name}
-            <span className="text-muted-foreground"> · {vehicle.model}</span>
-          </h1>
+          <VehicleTitle key={vehicle.id} vehicle={vehicle} onSaved={() => void load()} />
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground short:line-clamp-2">{payload.message}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

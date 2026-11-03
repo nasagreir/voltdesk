@@ -101,7 +101,7 @@ export function presentVehicle(
     elevation:
       vehicle.elevationM == null ? "—" : `${Math.round(vehicle.elevationM)} m`,
   };
-  return { ...vehicle, display };
+  return { ...vehicle, display, reportedName: vehicle.name };
 }
 
 export function money(value: number | null): string {

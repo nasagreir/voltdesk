@@ -8,6 +8,7 @@ import { buildReports } from "@/lib/reports";
 import { deriveCharges, deriveDrives } from "@/lib/sessions";
 import { tripSummary, tripsOverlapping } from "@/lib/trips";
 import { isLiveData, pollSeconds } from "@/lib/live-data";
+import { readAppearance, vehicleDisplayName } from "@/lib/appearance";
 import { summarizeCharges } from "@/lib/charge-cost";
 import { applyChargePrices, readChargePrices } from "@/lib/charge-prices";
 import { estimateTripRange, presentTripRange } from "@/lib/trip-range";
@@ -83,12 +84,16 @@ async function withTripRanges(
     fences = [];
   }
   const prices = await readChargePrices().catch(() => ({}));
+  const names = await readAppearance()
+    .then((file) => file.names)
+    .catch(() => ({}));
   const charges =
     samples.length > 0
       ? applyChargePrices(deriveCharges(samples, settings.electricityRateUsd, fences), prices)
       : [];
   return views.map((view) => ({
     ...view,
+    name: vehicleDisplayName(view.id, view.reportedName, names),
     chargeCosts: summarizeCharges(
       charges.filter((charge) => charge.vehicleId === view.id),
       now,
@@ -302,7 +307,10 @@ export async function getHistory(range: HistoryRange, vehicleId?: string | null)
   const { settings, dashboard, now, selected, fences, samples } = await contextFor(vehicleId);
   const home = fences.length > 0 ? fences : (homeOf(settings) ?? (dashboard.mode === "demo" ? DEMO_HOME : null));
   const prices = await readChargePrices().catch(() => ({}));
-  return buildHistory({
+  const names = await readAppearance()
+    .then((file) => file.names)
+    .catch(() => ({}));
+  const history = buildHistory({
     samples,
     range,
     now,
@@ -315,6 +323,8 @@ export async function getHistory(range: HistoryRange, vehicleId?: string | null)
     units: { distance: settings.distanceUnit, temp: settings.tempUnit },
     message: dashboard.message,
   });
+  if (history.vehicleId) history.vehicleName = vehicleDisplayName(history.vehicleId, history.vehicleName ?? "", names) || history.vehicleName;
+  return history;
 }
 
 export async function getTrips(from: Date, to: Date, fromDay: string, toDay: string, vehicleId?: string | null): Promise<TripsPayload> {
@@ -348,7 +358,10 @@ export async function getReports(days: number, vehicleId?: string | null): Promi
     addresses = await readAddresses().catch(() => ({}));
   }
   const prices = await readChargePrices().catch(() => ({}));
-  return buildReports({
+  const names = await readAppearance()
+    .then((file) => file.names)
+    .catch(() => ({}));
+  const reports = buildReports({
     samples,
     now,
     days,
@@ -362,6 +375,10 @@ export async function getReports(days: number, vehicleId?: string | null): Promi
     source: dashboard.source,
     message: dashboard.message,
   });
+  if (reports.vehicleId) {
+    reports.vehicleName = vehicleDisplayName(reports.vehicleId, reports.vehicleName ?? "", names) || reports.vehicleName;
+  }
+  return reports;
 }
 
 function samplesBetween(samples: VehicleSample[], start: string, end: string): VehicleSample[] {

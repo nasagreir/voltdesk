@@ -15,7 +15,7 @@ import {
   type ModelId,
 } from "@/lib/car-photos";
 
-const EMPTY: AppearanceFile = { colors: {}, models: {} };
+const EMPTY: AppearanceFile = { colors: {}, models: {}, names: {} };
 
 export function CarPortrait({
   vehicleId,
@@ -41,7 +41,7 @@ export function CarPortrait({
         .then(async (response) => {
           const body = (await response.json()) as AppearanceFile & { error?: string };
           if (!response.ok) throw new Error(body.error ?? "Could not load paint choices");
-          setFile({ colors: body.colors ?? {}, models: body.models ?? {} });
+          setFile({ colors: body.colors ?? {}, models: body.models ?? {}, names: body.names ?? {} });
           setError(null);
         })
         .catch((err: unknown) => {
@@ -73,6 +73,7 @@ export function CarPortrait({
     setFile({
       models: { ...file.models, [vehicleId]: modelId },
       colors: { ...file.colors, [vehicleId]: colorId },
+      names: file.names,
     });
     setError(null);
     try {
@@ -83,7 +84,7 @@ export function CarPortrait({
       });
       const body = (await response.json()) as AppearanceFile & { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Could not save that paint");
-      setFile({ colors: body.colors ?? {}, models: body.models ?? {} });
+      setFile({ colors: body.colors ?? {}, models: body.models ?? {}, names: body.names ?? {} });
       setColorOpen(false);
     } catch (err) {
       setFile(previous);

@@ -56,6 +56,22 @@ describe("car photos", () => {
     assert.deepEqual(clean, {
       models: { "demo-roadrunner": "model-y" },
       colors: { "demo-roadrunner": "ultra-red", truck: "ultra-red" },
+      names: {},
     });
+  });
+
+  it("keeps a typed name for that car and drops a blank or unsafe id", () => {
+    const clean = sanitizeAppearance({
+      names: {
+        "demo-roadrunner": "  Daily driver  ",
+        "../etc": "Nope",
+        empty: "   ",
+        long: "x".repeat(50),
+      },
+    });
+    assert.equal(clean.names["demo-roadrunner"], "Daily driver");
+    assert.equal(clean.names.long?.length, 40);
+    assert.equal(clean.names.empty, undefined);
+    assert.equal(clean.names["../etc"], undefined);
   });
 });
