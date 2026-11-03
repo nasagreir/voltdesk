@@ -379,6 +379,8 @@ export interface AppSettings {
   /** Legacy single token. Folded into apiTokens on read and cleared on save. */
   apiToken: string;
   apiTokens: BotApiToken[];
+  /** xAI key saved in settings. Environment keys stay out of this field. */
+  grokApiKey: string;
 }
 
 export interface BotApiToken {
@@ -417,4 +419,44 @@ export interface PublicSettings {
   botApiFromFile: boolean;
   botApiFromEnvironment: boolean;
   botTokens: PublicBotToken[];
+  /** True when a saved xAI key or XAI_API_KEY / GROK_API_KEY can be used. */
+  grokConfigured: boolean;
+  grokFromFile: boolean;
+  grokFromEnvironment: boolean;
+}
+
+export type ServiceStatus = "due" | "soon" | "ok" | "unset";
+
+export interface ServiceItem {
+  id: string;
+  title: string;
+  interval: string;
+  detail: string;
+  status: ServiceStatus;
+  remaining: string;
+  lastLabel: string;
+}
+
+export interface MaintenancePayload {
+  saltedRoads: boolean;
+  persisted: boolean;
+  odometerMi: number;
+  odometerLabel: string;
+  distanceUnit: DistanceUnit;
+  vehicleName: string | null;
+  model: string | null;
+  disclaimer: string;
+  items: ServiceItem[];
+}
+
+export interface SuggestionItem {
+  title: string;
+  detail: string;
+}
+
+export interface SuggestionsPayload {
+  source: "grok" | "car";
+  grokConfigured: boolean;
+  note?: string;
+  items: SuggestionItem[];
 }

@@ -4,8 +4,9 @@ Self-hosted Tesla dashboard in the same shape as [OrbitDesk](https://github.com/
 
 VoltDesk covers the TeslaMate vehicle screens in its own UI:
 
-- Garage: battery, rated, ideal, and estimated range, charge detail, climate, locks, sentry, tires, location
+- Garage: battery, rated, ideal, and estimated range, charge detail, climate, locks, sentry, tires, location, a short suggestion list, and service status
 - Trips: each drive on a street map, the stats for that drive, and any date range within the stored history
+- Service: Tesla’s published maintenance intervals, with a place to mark each item done
 - Charges and charge detail, split into AC and DC, with voltage, current, phases, and cost
 - Statistics, trip search, drive stats, charging stats, efficiency, battery health, charge level, projected range
 - Vampire drain, states, mileage, temperatures, software updates, visited points, and a timeline
@@ -134,6 +135,12 @@ curl -s -H "Authorization: Bearer vd_…" http://localhost:3470/api/v1/summary
 
 Creating or revoking a token is `POST /api/bot/token` and requires the VoltDesk login. Send `{ "name": "Grok bot" }` to create one, or `{ "revoke": true, "id": "…" }` to revoke one.
 
+The same Grok bot page can store an xAI key (`XAI_API_KEY` or `GROK_API_KEY` in `.env.local` also works). With a key, the garage asks Grok for about three short suggestions from the car’s battery, tires, software, and service dates. Without a key, those notes are computed on the car and labeled that way. The request leaves out the VIN, Tesla and Home Assistant secrets, and home coordinates. Wake, unlock, and start stay off that call too.
+
+## Service
+
+Service follows Tesla’s published list: tire rotation every 6,250 mi, a cabin air filter every 2 years on Model 3 and Model Y (3 years on Model S and Model X), a brake fluid health check every 4 years, wiper blades about once a year, and brake caliper cleaning every year or 12,500 mi where roads are salted. Lubrication of the caliper pins applies only to a Model Y built through February 2025. Salted roads start on, because the default home is Chicago, and you can turn that item off. Marking an item done records today and the current odometer unless you type an earlier date or mileage. This is a reminder, not a substitute for Controls → Service → Maintenance in the car.
+
 ## Scripts
 
 | Command | Description |
@@ -152,7 +159,7 @@ Creating or revoking a token is `POST /api/bot/token` and requires the VoltDesk 
 | --- | --- |
 | `/opt/voltdesk` | App directory inside the LXC |
 | `/opt/voltdesk/.env.local` | Installer-written secrets |
-| `/opt/voltdesk/data` | Users, settings, samples, geofences, address cache, last report |
+| `/opt/voltdesk/data` | Users, settings, samples, geofences, address cache, maintenance, last report |
 | `/etc/systemd/system/voltdesk.service` | systemd unit |
 | `/usr/local/bin/update` | Updater |
 | `proxmox-install.sh` | Single file you paste on the Proxmox host |

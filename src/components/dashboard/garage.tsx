@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BatteryDial } from "@/components/dashboard/battery-dial";
+import { GrokSuggestions } from "@/components/dashboard/grok-suggestions";
+import { ServiceSummary } from "@/components/dashboard/service-summary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -253,6 +255,11 @@ export function Garage() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-4 min-[560px]:grid-cols-2 book:gap-x-7">
+        <GrokSuggestions />
+        <ServiceSummary />
       </div>
     </div>
   );

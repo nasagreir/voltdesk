@@ -1,7 +1,13 @@
 import { connection, NextResponse } from "next/server";
 import { z } from "zod";
 import { clearDashboardCache } from "@/lib/vehicle-service";
-import { environmentApiToken, getSettings, saveSettings, toPublicSettings } from "@/lib/settings";
+import {
+  environmentApiToken,
+  environmentGrokKey,
+  getSettings,
+  saveSettings,
+  toPublicSettings,
+} from "@/lib/settings";
 import type { AppSettings } from "@/lib/types";
 
 const bodySchema = z.object({
@@ -25,8 +31,11 @@ const bodySchema = z.object({
 });
 
 async function publish(settings: Awaited<ReturnType<typeof getSettings>>) {
-  const fromEnvironment = Boolean(await environmentApiToken());
-  return toPublicSettings(settings, { fromEnvironment });
+  const [fromEnvironment, grokFromEnvironment] = await Promise.all([
+    environmentApiToken().then(Boolean),
+    environmentGrokKey().then(Boolean),
+  ]);
+  return toPublicSettings(settings, { fromEnvironment, grokFromEnvironment });
 }
 
 export async function GET() {

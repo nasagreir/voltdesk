@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { GrokKeyCard } from "@/components/settings/grok-key-card";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -315,6 +316,7 @@ export function BotTokens() {
               </div>
             </CardContent>
           </Card>
+          <GrokKeyCard />
         </>
       )}
     </div>

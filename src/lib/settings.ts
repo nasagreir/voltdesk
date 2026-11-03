@@ -22,6 +22,7 @@ const DEFAULTS: AppSettings = {
   homeRadiusM: 200,
   apiToken: "",
   apiTokens: [],
+  grokApiKey: "",
 };
 
 export const BOT_TOKEN_LIMIT = 12;
@@ -149,12 +150,32 @@ export async function getSettings(): Promise<AppSettings> {
     homeRadiusM: Number(file.homeRadiusM ?? env.HOME_RADIUS_M ?? DEFAULTS.homeRadiusM) || 200,
     apiToken: "",
     apiTokens: collectBotTokens(file),
+    grokApiKey: typeof file.grokApiKey === "string" ? file.grokApiKey.trim() : "",
   };
 }
 
 export async function environmentApiToken(): Promise<string> {
   const env = await readDotEnv();
   return (env.VOLTDESK_API_TOKEN ?? process.env.VOLTDESK_API_TOKEN ?? "").trim();
+}
+
+export async function environmentGrokKey(): Promise<string> {
+  const env = await readDotEnv();
+  return (
+    env.XAI_API_KEY ??
+    process.env.XAI_API_KEY ??
+    env.GROK_API_KEY ??
+    process.env.GROK_API_KEY ??
+    ""
+  ).trim();
+}
+
+/** Writes only the xAI key onto the settings file so env secrets are not copied in. */
+export async function saveGrokApiKey(apiKey: string) {
+  const file = await readJson<Record<string, unknown>>(getSettingsFilePath(), {});
+  file.grokApiKey = apiKey.trim();
+  await fs.mkdir(getDataDir(), { recursive: true });
+  await writeJson(getSettingsFilePath(), file);
 }
 
 export async function acceptedBotTokens(): Promise<string[]> {
@@ -169,11 +190,15 @@ export function demoForced(settings: AppSettings): boolean {
 
 export function toPublicSettings(
   settings: AppSettings,
-  access?: { fromEnvironment?: boolean },
+  access?: { fromEnvironment?: boolean; grokFromEnvironment?: boolean },
 ): PublicSettings {
   const fromFile = settings.apiTokens.length > 0;
   const fromEnvironment =
     access?.fromEnvironment ?? Boolean((process.env.VOLTDESK_API_TOKEN ?? "").trim());
+  const grokFromFile = Boolean(settings.grokApiKey);
+  const grokFromEnvironment =
+    access?.grokFromEnvironment ??
+    Boolean((process.env.XAI_API_KEY ?? process.env.GROK_API_KEY ?? "").trim());
   return {
     source: settings.source,
     homeAssistantUrl: settings.homeAssistantUrl,
@@ -200,6 +225,9 @@ export function toPublicSettings(
       createdAt: item.createdAt,
       hint: botTokenHint(item.token),
     })),
+    grokConfigured: grokFromFile || grokFromEnvironment,
+    grokFromFile,
+    grokFromEnvironment,
   };
 }
 
