@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { BotAccessCard } from "@/components/settings/bot-access-card";
+import { SettingsNav } from "@/components/settings/settings-nav";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,11 +60,17 @@ export function SettingsForm() {
   }
 
   if (!settings) {
-    return <p className="text-sm text-muted-foreground">{error ?? "Loading connections…"}</p>;
+    return (
+      <div className="space-y-4">
+        <SettingsNav />
+        <p className="text-sm text-muted-foreground">{error ?? "Loading connections…"}</p>
+      </div>
+    );
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      <SettingsNav />
       <div>
         <h1 className="font-heading text-2xl tracking-tight">Connections</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
@@ -293,8 +299,6 @@ export function SettingsForm() {
           </Field>
         </CardContent>
       </Card>
-
-      <BotAccessCard settings={settings} onChange={setSettings} />
 
       <Button type="submit">Save connections</Button>
     </form>

@@ -356,8 +356,23 @@ export interface AppSettings {
   homeLat: number | null;
   homeLng: number | null;
   homeRadiusM: number;
-  /** Read-only bearer token for a Grok bot. Empty when none is saved. */
+  /** Legacy single token. Folded into apiTokens on read and cleared on save. */
   apiToken: string;
+  apiTokens: BotApiToken[];
+}
+
+export interface BotApiToken {
+  id: string;
+  name: string;
+  token: string;
+  createdAt: string;
+}
+
+export interface PublicBotToken {
+  id: string;
+  name: string;
+  createdAt: string;
+  hint: string;
 }
 
 export interface PublicSettings {
@@ -381,4 +396,5 @@ export interface PublicSettings {
   botApiConfigured: boolean;
   botApiFromFile: boolean;
   botApiFromEnvironment: boolean;
+  botTokens: PublicBotToken[];
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { tokenMatches } from "./bot-auth";
 import { clampDays, vehicleSentence } from "./bot-payload";
+import { botTokenHint, collectBotTokens } from "./settings";
 import type { VehicleView } from "./types";
 
 describe("bot token compare", () => {
@@ -14,6 +15,27 @@ describe("bot token compare", () => {
   it("rejects a different length without throwing", () => {
     assert.equal(tokenMatches("vd_short", `vd_${"aa".repeat(32)}`), false);
     assert.equal(tokenMatches("", "vd_token"), false);
+  });
+});
+
+describe("saved bot tokens", () => {
+  const secret = `vd_${"ab".repeat(32)}`;
+
+  it("keeps a legacy token and hides the secret behind a hint", () => {
+    const tokens = collectBotTokens({ apiToken: secret });
+    assert.equal(tokens.length, 1);
+    assert.equal(tokens[0]?.token, secret);
+    assert.equal(botTokenHint(secret), "vd_…abab");
+    assert.equal(botTokenHint(secret).includes(secret), false);
+  });
+
+  it("drops a duplicate of the legacy token", () => {
+    const tokens = collectBotTokens({
+      apiToken: secret,
+      apiTokens: [{ id: "abc123", name: "Phone", token: secret, createdAt: "2026-11-02T00:00:00.000Z" }],
+    });
+    assert.equal(tokens.length, 1);
+    assert.equal(tokens[0]?.name, "Phone");
   });
 });
 

@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getDataDir, getSettingsFilePath } from "@/lib/auth/paths";
 import { readJson, writeJson } from "@/lib/store";
-import type { AppSettings, PublicSettings, SourcePreference, TeslaRegion } from "@/lib/types";
+import type { AppSettings, BotApiToken, PublicSettings, SourcePreference, TeslaRegion } from "@/lib/types";
 
 const DEFAULTS: AppSettings = {
   source: "auto",
@@ -21,7 +21,39 @@ const DEFAULTS: AppSettings = {
   homeLng: null,
   homeRadiusM: 200,
   apiToken: "",
+  apiTokens: [],
 };
+
+export const BOT_TOKEN_LIMIT = 12;
+
+export function botTokenHint(token: string): string {
+  return `vd_…${token.slice(-4)}`;
+}
+
+export function collectBotTokens(file: Partial<AppSettings>): BotApiToken[] {
+  const tokens: BotApiToken[] = [];
+  const raw = Array.isArray(file.apiTokens) ? file.apiTokens : [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const token = typeof item.token === "string" ? item.token.trim() : "";
+    if (!token.startsWith("vd_") || token.length > 200) continue;
+    const name = (typeof item.name === "string" ? item.name.trim() : "").slice(0, 40) || "Grok bot";
+    const id =
+      typeof item.id === "string" && /^[a-zA-Z0-9_-]{1,40}$/.test(item.id.trim())
+        ? item.id.trim()
+        : token.slice(-8);
+    const createdAt = typeof item.createdAt === "string" ? item.createdAt.slice(0, 40) : "";
+    if (tokens.some((saved) => saved.token === token || saved.id === id)) continue;
+    tokens.push({ id, name, token, createdAt });
+    if (tokens.length >= BOT_TOKEN_LIMIT) break;
+  }
+  const legacy = typeof file.apiToken === "string" ? file.apiToken.trim() : "";
+  if (legacy.startsWith("vd_") && legacy.length <= 200 && !tokens.some((saved) => saved.token === legacy)) {
+    const id = tokens.some((saved) => saved.id === "legacy") ? `legacy-${legacy.slice(-6)}` : "legacy";
+    tokens.unshift({ id, name: "Grok bot", token: legacy, createdAt: "" });
+  }
+  return tokens.slice(0, BOT_TOKEN_LIMIT);
+}
 
 function asRegion(value: string | undefined): TeslaRegion {
   return value === "eu" || value === "cn" || value === "na" ? value : "na";
@@ -115,7 +147,8 @@ export async function getSettings(): Promise<AppSettings> {
     homeLat: homeLat != null && Number.isFinite(homeLat) ? homeLat : null,
     homeLng: homeLng != null && Number.isFinite(homeLng) ? homeLng : null,
     homeRadiusM: Number(file.homeRadiusM ?? env.HOME_RADIUS_M ?? DEFAULTS.homeRadiusM) || 200,
-    apiToken: typeof file.apiToken === "string" ? file.apiToken.trim() : "",
+    apiToken: "",
+    apiTokens: collectBotTokens(file),
   };
 }
 
@@ -126,7 +159,7 @@ export async function environmentApiToken(): Promise<string> {
 
 export async function acceptedBotTokens(): Promise<string[]> {
   const [settings, envToken] = await Promise.all([getSettings(), environmentApiToken()]);
-  return [...new Set([settings.apiToken, envToken].map((token) => token.trim()).filter(Boolean))];
+  return [...new Set([...settings.apiTokens.map((item) => item.token), envToken].filter(Boolean))];
 }
 
 export function demoForced(settings: AppSettings): boolean {
@@ -138,7 +171,7 @@ export function toPublicSettings(
   settings: AppSettings,
   access?: { fromEnvironment?: boolean },
 ): PublicSettings {
-  const fromFile = Boolean(settings.apiToken);
+  const fromFile = settings.apiTokens.length > 0;
   const fromEnvironment =
     access?.fromEnvironment ?? Boolean((process.env.VOLTDESK_API_TOKEN ?? "").trim());
   return {
@@ -161,6 +194,12 @@ export function toPublicSettings(
     botApiConfigured: fromFile || fromEnvironment,
     botApiFromFile: fromFile,
     botApiFromEnvironment: fromEnvironment,
+    botTokens: settings.apiTokens.map((item) => ({
+      id: item.id,
+      name: item.name,
+      createdAt: item.createdAt,
+      hint: botTokenHint(item.token),
+    })),
   };
 }
 
