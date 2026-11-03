@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BatteryDial } from "@/components/dashboard/battery-dial";
+import { CarPortrait } from "@/components/dashboard/car-portrait";
 import { GrokSuggestions } from "@/components/dashboard/grok-suggestions";
 import { ServiceSummary } from "@/components/dashboard/service-summary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -145,6 +146,14 @@ export function Garage() {
           <AlertDescription>{vehicle.alerts.join(" · ")}</AlertDescription>
         </Alert>
       )}
+
+      <CarPortrait
+        key={vehicle.id}
+        vehicleId={vehicle.id}
+        model={vehicle.model}
+        trim={vehicle.trim}
+        reportedColor={vehicle.color}
+      />
 
       <div className="duo-fold grid gap-4 short:grid-cols-[8.5rem_minmax(0,1fr)] short:gap-2 min-[900px]:grid-cols-[13rem_minmax(0,1fr)]">
         <Card>
