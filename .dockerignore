@@ -1,0 +1,48 @@
+# Version control
+.git/
+.gitignore
+.github/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+LICENSE
+docs/
+
+# Docker files
+Dockerfile*
+compose*.yaml
+.dockerignore
+
+# Environment and secrets
+**/.npmrc
+.env
+.env.*
+*.pem
+*.key
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js build output and local runtime data
+.next/
+out/
+data/
+coverage/
+.vercel/
+agent-tools/
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db

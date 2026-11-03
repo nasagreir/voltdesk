@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Extra standalone server for Docker. The Proxmox install still uses `next start`.
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   async redirects() {

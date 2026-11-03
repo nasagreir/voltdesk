@@ -1,0 +1,31 @@
+# Local development. Not loaded automatically.
+#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+# Next's own watcher reloads the bind-mounted source. Rebuild this image after package.json changes.
+
+services:
+  voltdesk:
+    build:
+      target: dev
+    image: voltdesk:dev
+    restart: "no"
+    user: "0:0"
+    ports:
+      - "127.0.0.1:3470:3470"
+    environment:
+      NODE_ENV: development
+      PORT: "3470"
+      HOSTNAME: 0.0.0.0
+      VOLTDESK_DATA_DIR: /data
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - .:/src
+      - voltdesk-dev-modules:/src/node_modules
+      - voltdesk-dev-next:/src/.next
+      - voltdesk-data:/data
+    entrypoint: ["npm", "run", "dev", "--", "--port", "3470", "--hostname", "0.0.0.0"]
+    healthcheck:
+      disable: true
+
+volumes:
+  voltdesk-dev-modules:
+  voltdesk-dev-next:

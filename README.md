@@ -78,6 +78,42 @@ voltdesk-user reset-password ghull
 
 The prompt asks twice and does not echo. Press Enter to generate a password. A reset signs browsers out of that account. Type the username by itself. `<ghull>` is shell redirection. For a script, set `VOLTDESK_PASSWORD` instead of putting the password on the command line.
 
+On Docker the same command is `docker compose exec voltdesk voltdesk-user`. Add `-it` when you want the hidden password prompt.
+
+## Docker
+
+The Proxmox installer is unchanged. This is the same app in a container, for a host that already runs Docker.
+
+```bash
+docker compose up -d --build
+```
+
+Open `http://<host>:3470`. The published port listens on every interface, same as the LXC. Set `VOLTDESK_BIND=127.0.0.1` in `.env` to keep it on that machine.
+
+Users, settings, history, service files, and the signing secret live in the `voltdesk-data` volume at `/data` inside the container. Copy `.env.example` to `.env` for Home Assistant, Tesla Fleet, Paperless, or a Grok key. Leave `AUTH_SECRET` unset and the container writes a secret into the volume on first start. The placeholder in the example is ignored. Set your own only when it is at least 16 characters.
+
+```bash
+docker compose exec voltdesk voltdesk-user list
+docker compose exec -it voltdesk voltdesk-user reset-password ghull
+```
+
+The process runs as uid 1001. The named volume is already writable by that user. A bind mount in place of the volume needs the same ownership.
+
+Pull a new release and rebuild. The volume stays.
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+`docker compose down` stops the container and keeps `voltdesk-data`. `docker compose down -v` deletes that volume, including users, history, and the signing secret.
+
+For a live-reloading checkout, use the dev file. It listens on `127.0.0.1:3470` and mounts the source. Rebuild it after `package.json` changes.
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml up --build
+```
+
 ## Quick start (local)
 
 ```bash
@@ -163,6 +199,8 @@ PAPERLESS_TAG=VoltDesk
 | `npm run user -- reset-password admin` | Reset a login. Inside the LXC the command is `voltdesk-user reset-password` |
 | `update` | LXC update with backup and rollback |
 | `bash proxmox-install.sh` | Pasteable Proxmox LXC installer |
+| `docker compose up -d --build` | Production container on port 3470 |
+| `docker compose exec voltdesk voltdesk-user list` | Accounts stored in the Docker volume |
 
 ## Layout
 
@@ -175,3 +213,6 @@ PAPERLESS_TAG=VoltDesk
 | `/usr/local/bin/update` | Updater |
 | `proxmox-install.sh` | Single file you paste on the Proxmox host |
 | `scripts/proxmox/ct-install.sh` | The same in-container install, kept readable |
+| `Dockerfile` | Production image, plus a `dev` stage |
+| `compose.yaml` | Container, port 3470, and the `voltdesk-data` volume |
+| `compose.dev.yaml` | Opt-in live reload. Not loaded by `docker compose up` |

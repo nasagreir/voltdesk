@@ -1,0 +1,38 @@
+# VoltDesk on Docker. Data stays in the voltdesk-data volume.
+# The published port listens on every interface, same as the Proxmox LXC.
+# Set VOLTDESK_BIND=127.0.0.1 to keep port 3470 on this machine only.
+
+services:
+  voltdesk:
+    build:
+      context: .
+      target: runtime
+    image: voltdesk:local
+    restart: unless-stopped
+    ports:
+      - "${VOLTDESK_BIND:-0.0.0.0}:3470:3470"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "3470"
+      VOLTDESK_DATA_DIR: /data
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - voltdesk-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.PORT||3470)+'/api/auth/me').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  voltdesk-data:
