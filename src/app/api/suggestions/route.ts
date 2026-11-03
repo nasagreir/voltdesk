@@ -1,7 +1,8 @@
+import { headers } from "next/headers";
 import { connection, NextResponse } from "next/server";
 import { readMaintenanceFile } from "@/lib/maintenance-store";
 import { evaluateMaintenance, resolveMaintenance } from "@/lib/maintenance";
-import { environmentGrokKey, getSettings } from "@/lib/settings";
+import { environmentApplies, environmentGrokKey, getSettings } from "@/lib/settings";
 import { suggestionCacheKey, suggestionsFor, type SuggestionFacts } from "@/lib/suggestions";
 import { chicagoYMD } from "@/lib/time";
 import { getDashboard } from "@/lib/vehicle-service";
@@ -9,10 +10,11 @@ import { getDashboard } from "@/lib/vehicle-service";
 export async function GET(request: Request) {
   await connection();
   try {
+    const applyEnv = await environmentApplies();
     const [dash, settings, envKey] = await Promise.all([
       getDashboard(),
       getSettings(),
-      environmentGrokKey(),
+      applyEnv ? environmentGrokKey() : Promise.resolve(""),
     ]);
     const vehicleId = new URL(request.url).searchParams.get("vehicle");
     const vehicle = dash.vehicles.find((item) => item.id === vehicleId) ?? dash.vehicles[0];
@@ -47,10 +49,11 @@ export async function GET(request: Request) {
     };
     const day = chicagoYMD(now);
     const key = settings.grokApiKey || envKey;
+    const user = (await headers()).get("x-voltdesk-user") ?? "";
     const payload = await suggestionsFor(
       key,
       facts,
-      suggestionCacheKey(facts, `${day.y}-${day.m}-${day.d}`),
+      `${user}|${suggestionCacheKey(facts, `${day.y}-${day.m}-${day.d}`)}`,
     );
     return NextResponse.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {

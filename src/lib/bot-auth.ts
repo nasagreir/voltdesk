@@ -1,5 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
-import { acceptedBotTokens } from "@/lib/settings";
+import path from "node:path";
+import { getDataDir, userDataDir } from "@/lib/auth/paths";
+import { listUsers, ownerUsername } from "@/lib/auth/users";
+import { readJson } from "@/lib/store";
+import { collectBotTokens, environmentApiToken } from "@/lib/settings";
+import type { AppSettings } from "@/lib/types";
 
 const MAX_TOKEN_LENGTH = 200;
 
@@ -22,9 +27,35 @@ export function tokenMatches(presented: string, expected: string): boolean {
   return timingSafeEqual(left, right);
 }
 
+async function tokensIn(file: string): Promise<string[]> {
+  const raw = await readJson<Partial<AppSettings>>(file, {});
+  return collectBotTokens(raw).map((item) => item.token);
+}
+
+/**
+ * The login whose bot token this is.
+ * "*" means the container env token and there is no login yet, so the shared files still apply.
+ */
+export async function userForBotToken(presented: string): Promise<string | null> {
+  if (!presented) return null;
+  const users = await listUsers();
+  const owner = await ownerUsername();
+  let found: string | null = null;
+  for (const user of users) {
+    const tokens = await tokensIn(path.join(userDataDir(user.username), "settings.json"));
+    if (tokens.some((token) => tokenMatches(presented, token))) found ??= user.username;
+  }
+  if (owner) {
+    const legacy = await tokensIn(path.join(getDataDir(), "settings.json"));
+    if (legacy.some((token) => tokenMatches(presented, token))) found ??= owner;
+  }
+  const envToken = await environmentApiToken();
+  if (envToken && tokenMatches(presented, envToken)) found ??= owner ?? "*";
+  return found;
+}
+
 export async function authorizedBot(request: Request): Promise<boolean> {
   const presented = bearerToken(request);
   if (!presented) return false;
-  const tokens = await acceptedBotTokens();
-  return tokens.some((token) => tokenMatches(presented, token));
+  return (await userForBotToken(presented)) != null;
 }

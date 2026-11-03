@@ -39,6 +39,24 @@ export async function userCount(): Promise<number> {
   return users.length;
 }
 
+export async function listUsers(): Promise<StoredUser[]> {
+  const { users } = await readUsersFile();
+  return users;
+}
+
+export async function ownerUsername(): Promise<string | null> {
+  const { users } = await readUsersFile();
+  if (users.length === 0) return null;
+  const [owner] = [...users].sort((a, b) => {
+    const created = a.createdAt.localeCompare(b.createdAt);
+    if (created !== 0) return created;
+    return a.username.localeCompare(b.username);
+  });
+  return owner?.username ?? null;
+}
+
+export const USER_LIMIT = 30;
+
 export async function findUser(username: string): Promise<StoredUser | undefined> {
   const { users } = await readUsersFile();
   return users.find((user) => user.username.toLowerCase() === username.trim().toLowerCase());
@@ -51,6 +69,7 @@ export async function createUser(username: string, password: string) {
   }
   if (password.length < 8) throw new Error("Password must be at least 8 characters");
   const data = await readUsersFile();
+  if (data.users.length >= USER_LIMIT) throw new Error("VoltDesk keeps up to 30 logins.");
   if (data.users.some((user) => user.username.toLowerCase() === trimmed.toLowerCase())) {
     throw new Error(`User "${trimmed}" already exists`);
   }

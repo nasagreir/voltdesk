@@ -1,3 +1,4 @@
+import { withActor } from "@/lib/auth/actor";
 import { isColorId, isModelId, modelById, type ColorId, type ModelId } from "@/lib/car-photos";
 import { dataPath, readJson, writeJson } from "@/lib/store";
 
@@ -49,10 +50,14 @@ export function vehicleDisplayName(
 }
 
 export async function readAppearance(): Promise<AppearanceFile> {
-  return sanitizeAppearance(await readJson(dataPath("appearance.json"), EMPTY));
+  return withActor(async () => sanitizeAppearance(await readJson(dataPath("appearance.json"), EMPTY)));
 }
 
 export async function saveAppearance(vehicleId: string, modelId: ModelId, colorId: ColorId): Promise<AppearanceFile> {
+  return withActor(() => saveAppearanceNow(vehicleId, modelId, colorId));
+}
+
+async function saveAppearanceNow(vehicleId: string, modelId: ModelId, colorId: ColorId): Promise<AppearanceFile> {
   if (!VEHICLE_ID_PATTERN.test(vehicleId)) throw new Error("That vehicle id is not valid.");
   if (!modelById(modelId).colors.includes(colorId)) {
     throw new Error("That paint is not offered on this model.");
@@ -68,6 +73,10 @@ export async function saveAppearance(vehicleId: string, modelId: ModelId, colorI
 }
 
 export async function saveVehicleName(vehicleId: string, name: string | null): Promise<AppearanceFile> {
+  return withActor(() => saveVehicleNameNow(vehicleId, name));
+}
+
+async function saveVehicleNameNow(vehicleId: string, name: string | null): Promise<AppearanceFile> {
   if (!VEHICLE_ID_PATTERN.test(vehicleId)) throw new Error("That vehicle id is not valid.");
   const current = await readAppearance();
   const names = { ...current.names };

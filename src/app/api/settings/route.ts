@@ -4,6 +4,7 @@ import { clearDashboardCache } from "@/lib/vehicle-service";
 import { cleanPaperlessUrl, normalizePaperlessTag } from "@/lib/service-docs";
 import {
   environmentApiToken,
+  environmentApplies,
   environmentGrokKey,
   environmentPaperlessToken,
   getSettings,
@@ -42,11 +43,14 @@ const bodySchema = z.object({
 });
 
 async function publish(settings: Awaited<ReturnType<typeof getSettings>>) {
-  const [fromEnvironment, grokFromEnvironment, paperlessFromEnvironment] = await Promise.all([
-    environmentApiToken().then(Boolean),
-    environmentGrokKey().then(Boolean),
-    environmentPaperlessToken().then(Boolean),
-  ]);
+  const applyEnv = await environmentApplies();
+  const [fromEnvironment, grokFromEnvironment, paperlessFromEnvironment] = applyEnv
+    ? await Promise.all([
+        environmentApiToken().then(Boolean),
+        environmentGrokKey().then(Boolean),
+        environmentPaperlessToken().then(Boolean),
+      ])
+    : [false, false, false];
   return toPublicSettings(settings, { fromEnvironment, grokFromEnvironment, paperlessFromEnvironment });
 }
 
@@ -101,6 +105,6 @@ export async function POST(request: Request) {
     next.paperlessUrl = url;
   }
   await saveSettings(next);
-  clearDashboardCache();
+  await clearDashboardCache();
   return NextResponse.json(await publish(next));
 }

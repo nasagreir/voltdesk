@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
-import { getDataDir } from "@/lib/auth/paths";
+import { withActor } from "@/lib/auth/actor";
+import { activeDataDir } from "@/lib/auth/scope";
 import path from "node:path";
 import { DEMO_FENCES } from "@/lib/demo";
 import { addressKey, matchFence } from "@/lib/sessions";
@@ -7,14 +8,18 @@ import { readJson, writeJson } from "@/lib/store";
 import type { AppSettings, ConnectionMode, Geofence, VehicleSample } from "@/lib/types";
 
 function fencesPath() {
-  return path.join(getDataDir(), "geofences.json");
+  return path.join(activeDataDir(), "geofences.json");
 }
 
 function addressesPath() {
-  return path.join(getDataDir(), "addresses.json");
+  return path.join(activeDataDir(), "addresses.json");
 }
 
 export async function readSavedFences(): Promise<Geofence[] | null> {
+  return withActor(readSavedFencesNow);
+}
+
+async function readSavedFencesNow(): Promise<Geofence[] | null> {
   try {
     const raw = await fs.readFile(fencesPath(), "utf8");
     const parsed = JSON.parse(raw) as Geofence[];
@@ -26,7 +31,7 @@ export async function readSavedFences(): Promise<Geofence[] | null> {
 }
 
 export async function writeFences(fences: Geofence[]) {
-  await writeJson(fencesPath(), fences);
+  await withActor(() => writeJson(fencesPath(), fences));
 }
 
 export function applyHomeSettings(fences: Geofence[], settings: AppSettings): Geofence[] {
@@ -78,10 +83,17 @@ export async function resolveFences(
 }
 
 export async function readAddresses(): Promise<Record<string, string>> {
-  return readJson<Record<string, string>>(addressesPath(), {});
+  return withActor(() => readJson<Record<string, string>>(addressesPath(), {}));
 }
 
 export async function rememberAddresses(
+  samples: VehicleSample[],
+  fences: Geofence[],
+): Promise<Record<string, string>> {
+  return withActor(() => rememberAddressesNow(samples, fences));
+}
+
+async function rememberAddressesNow(
   samples: VehicleSample[],
   fences: Geofence[],
 ): Promise<Record<string, string>> {

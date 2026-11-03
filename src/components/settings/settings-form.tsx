@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { PeopleCard } from "@/components/settings/people-card";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -75,14 +76,16 @@ export function SettingsForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <div className="space-y-4">
       <SettingsNav />
       <div>
         <h1 className="font-heading text-2xl tracking-tight">Connections</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Home Assistant is the same path OrbitDesk uses. A Tesla Fleet refresh token is optional and stays on this machine. Leave a token box blank to keep the one already saved.
+          Home Assistant is the same path OrbitDesk uses. The Tesla Fleet client id and refresh token on this page belong to this login only. Leave a token box blank to keep the one already saved.
         </p>
       </div>
+      <PeopleCard />
+      <form onSubmit={onSubmit} className="space-y-4">
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -428,7 +431,8 @@ export function SettingsForm() {
       </Card>
 
       <Button type="submit">Save connections</Button>
-    </form>
+      </form>
+    </div>
   );
 }
 

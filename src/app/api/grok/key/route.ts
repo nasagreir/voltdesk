@@ -3,6 +3,7 @@ import { z } from "zod";
 import { clearSuggestionCache } from "@/lib/suggestions";
 import {
   environmentApiToken,
+  environmentApplies,
   environmentGrokKey,
   getSettings,
   saveGrokApiKey,
@@ -33,10 +34,11 @@ export async function POST(request: Request) {
   const apiKey = "clear" in parsed.data ? "" : parsed.data.apiKey.trim();
   await saveGrokApiKey(apiKey);
   clearSuggestionCache();
+  const applyEnv = await environmentApplies();
   const [settings, fromEnvironment, grokKey] = await Promise.all([
     getSettings(),
-    environmentApiToken(),
-    environmentGrokKey(),
+    applyEnv ? environmentApiToken() : Promise.resolve(""),
+    applyEnv ? environmentGrokKey() : Promise.resolve(""),
   ]);
   const publicSettings = toPublicSettings(settings, {
     fromEnvironment: Boolean(fromEnvironment),

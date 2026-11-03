@@ -44,9 +44,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  const response = NextResponse.next();
-  if (session) response.headers.set("x-voltdesk-user", session.username);
-  return response;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete("x-voltdesk-user");
+  if (session) requestHeaders.set("x-voltdesk-user", session.username);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

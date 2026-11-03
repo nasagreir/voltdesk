@@ -1,3 +1,4 @@
+import { withActor } from "@/lib/auth/actor";
 import { dataPath, readJson, writeJson } from "@/lib/store";
 import type { ChargeSession } from "@/lib/types";
 
@@ -8,6 +9,10 @@ function pricesPath() {
 }
 
 export async function readChargePrices(): Promise<ChargePriceMap> {
+  return withActor(readChargePricesNow);
+}
+
+async function readChargePricesNow(): Promise<ChargePriceMap> {
   const raw = await readJson<Record<string, unknown>>(pricesPath(), {});
   const prices: ChargePriceMap = {};
   for (const [id, value] of Object.entries(raw)) {
@@ -17,6 +22,10 @@ export async function readChargePrices(): Promise<ChargePriceMap> {
 }
 
 export async function setChargePrice(id: string, amount: number | null) {
+  return withActor(() => setChargePriceNow(id, amount));
+}
+
+async function setChargePriceNow(id: string, amount: number | null) {
   const prices = await readChargePrices();
   if (amount == null) delete prices[id];
   else prices[id] = Math.round(amount * 100) / 100;

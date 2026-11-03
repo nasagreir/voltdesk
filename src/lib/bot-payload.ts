@@ -253,7 +253,7 @@ export function botDiscovery(origin: string) {
     tool: {
       name: "voltdesk_car",
       description:
-        "Read the Tesla tracked by VoltDesk. Use summary for a short answer. Use vehicle, drives, or charges for detail. This API is read-only: it cannot wake, unlock, or start the car.",
+        "Read the Tesla for the VoltDesk login that created this token. Use summary for a short answer. Use vehicle, drives, or charges for detail. This API is read-only: it cannot wake, unlock, or start the car.",
       baseUrl: `${base}/api/v1`,
       authorization: "Bearer <token>",
       requests: {

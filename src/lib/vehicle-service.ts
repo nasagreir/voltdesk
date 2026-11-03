@@ -15,6 +15,7 @@ import { dailyDistance } from "@/lib/daily-distance";
 import { speedOverDrives } from "@/lib/speed";
 import { dailyReadings, type ReadingMetric } from "@/lib/reading-series";
 import { estimateTripRange, presentTripRange } from "@/lib/trip-range";
+import { actorUsername, withActor } from "@/lib/auth/actor";
 import { demoForced, getSettings } from "@/lib/settings";
 import { fetchTeslaVehicles, TeslaRequestError, wakeTeslaVehicle } from "@/lib/tesla-fleet";
 import type {
@@ -31,8 +32,8 @@ import type {
 } from "@/lib/types";
 
 const CACHE_MS = 12_000;
-let cached: { at: number; payload: DashboardPayload } | null = null;
-let inflight: Promise<DashboardPayload> | null = null;
+const dashboards = new Map<string, { at: number; payload: DashboardPayload }>();
+const inflight = new Map<string, Promise<DashboardPayload>>();
 
 function recordEvery(vehicles: Vehicle[], settings: AppSettings) {
   return pollSeconds(
@@ -183,10 +184,23 @@ async function loadLive(settings: AppSettings): Promise<{
 }
 
 async function compose(force = false): Promise<DashboardPayload> {
-  if (!force && inflight) return inflight;
+  return withActor(async () => {
+    const key = actorUsername() ?? "_shared";
+    const pending = inflight.get(key);
+    if (!force && pending) return pending;
+    const task = composeBody(force, key);
+    inflight.set(key, task);
+    return task.finally(() => {
+      if (inflight.get(key) === task) inflight.delete(key);
+    });
+  });
+}
+
+async function composeBody(force: boolean, key: string): Promise<DashboardPayload> {
   const task: Promise<DashboardPayload> = (async () => {
     const settings = await getSettings();
     const live = isLiveData(settings.liveDataUntil);
+    const cached = dashboards.get(key);
     if (!force && cached && cached.payload.liveData === live && Date.now() - cached.at < (live ? 5_000 : CACHE_MS)) {
       return cached.payload;
     }
@@ -212,7 +226,7 @@ async function compose(force = false): Promise<DashboardPayload> {
               pollIntervalSeconds: suggestedPoll(live.vehicles, settings),
               ...liveFields(settings),
             };
-            cached = { at: Date.now(), payload };
+            dashboards.set(key, { at: Date.now(), payload });
             return payload;
           } catch (error) {
             const latest = await readLatest();
@@ -232,7 +246,7 @@ async function compose(force = false): Promise<DashboardPayload> {
                 pollIntervalSeconds: suggestedPoll(saved, settings),
                 ...liveFields(settings),
               };
-              cached = { at: Date.now(), payload };
+              dashboards.set(key, { at: Date.now(), payload });
               return payload;
             }
             const demo = buildDemo();
@@ -246,7 +260,7 @@ async function compose(force = false): Promise<DashboardPayload> {
               pollIntervalSeconds: suggestedPoll([demo.vehicle], settings),
               ...liveFields(settings),
             };
-            cached = { at: Date.now(), payload };
+            dashboards.set(key, { at: Date.now(), payload });
             return payload;
           }
         }
@@ -277,17 +291,21 @@ async function compose(force = false): Promise<DashboardPayload> {
       pollIntervalSeconds: suggestedPoll([demo.vehicle], settings),
       ...liveFields(settings),
     };
-    cached = { at: Date.now(), payload };
+    dashboards.set(key, { at: Date.now(), payload });
     return payload;
   })();
-  inflight = task.finally(() => {
-    inflight = null;
-  });
   return task;
 }
 
-export function clearDashboardCache() {
-  cached = null;
+export async function clearDashboardCache() {
+  await withActor(async () => {
+    const key = actorUsername();
+    if (!key) {
+      dashboards.clear();
+      return;
+    }
+    dashboards.delete(key);
+  });
 }
 
 export async function getDashboard(): Promise<DashboardPayload> {
@@ -507,7 +525,7 @@ export async function getCharge(id: string): Promise<{
 
 export async function wakeVehicle(id: string): Promise<{ ok: true; state: string }> {
   const settings = await getSettings();
-  clearDashboardCache();
+  await clearDashboardCache();
   if (settings.teslaRefreshToken && settings.teslaClientId && settings.source !== "home-assistant") {
     const state = await wakeTeslaVehicle(settings, id);
     return { ok: true, state };

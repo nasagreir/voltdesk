@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { getDataDir } from "@/lib/auth/paths";
+import { activeDataDir } from "@/lib/auth/scope";
 
 export async function readJson<T>(file: string, fallback: T): Promise<T> {
   try {
@@ -25,5 +25,5 @@ export async function writeJson(file: string, data: unknown) {
 }
 
 export function dataPath(name: string) {
-  return path.join(getDataDir(), name);
+  return path.join(activeDataDir(), name);
 }

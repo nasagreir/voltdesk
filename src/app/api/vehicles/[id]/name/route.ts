@@ -19,7 +19,7 @@ export async function POST(
   }
   try {
     await saveVehicleName(decodeURIComponent(id), parsed.data.name);
-    clearDashboardCache();
+    await clearDashboardCache();
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(

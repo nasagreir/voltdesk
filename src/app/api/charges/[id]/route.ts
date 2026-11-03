@@ -38,7 +38,7 @@ export async function POST(
   const existing = await getCharge(decoded);
   if (!existing) return NextResponse.json({ error: "Charge not found" }, { status: 404 });
   await setChargePrice(decoded, parsed.data.amount);
-  clearDashboardCache();
+  await clearDashboardCache();
   const charge = await getCharge(decoded);
   if (!charge) return NextResponse.json({ error: "Charge not found" }, { status: 404 });
   return NextResponse.json(charge);

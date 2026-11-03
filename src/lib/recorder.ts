@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { getLatestFilePath, getSamplesFilePath } from "@/lib/auth/paths";
+import { withActor } from "@/lib/auth/actor";
+import { getLatestFilePath, getSamplesFilePath } from "@/lib/auth/scope";
 import { readJson, writeJson } from "@/lib/store";
 import type { Vehicle, VehicleSample } from "@/lib/types";
 
@@ -49,6 +50,10 @@ export function vehicleToSample(vehicle: Vehicle): VehicleSample {
 }
 
 export async function readSamples(): Promise<VehicleSample[]> {
+  return withActor(() => readSamplesNow());
+}
+
+async function readSamplesNow(): Promise<VehicleSample[]> {
   try {
     const raw = await fs.readFile(getSamplesFilePath(), "utf8");
     const cutoff = Date.now() - KEEP_MS;
@@ -65,6 +70,10 @@ export async function readSamples(): Promise<VehicleSample[]> {
 }
 
 export async function recordVehicles(vehicles: Vehicle[], minIntervalSec: number) {
+  return withActor(() => recordVehiclesNow(vehicles, minIntervalSec));
+}
+
+async function recordVehiclesNow(vehicles: Vehicle[], minIntervalSec: number) {
   const fresh = vehicles.filter((vehicle) => vehicle.batteryPercent > 0 || vehicle.odometerMi > 0);
   if (fresh.length === 0) return;
   const existing = await readSamples();
@@ -96,10 +105,14 @@ export async function recordVehicles(vehicles: Vehicle[], minIntervalSec: number
 }
 
 export async function readLatest(): Promise<Record<string, Vehicle>> {
-  return readJson<Record<string, Vehicle>>(getLatestFilePath(), {});
+  return withActor(() => readJson<Record<string, Vehicle>>(getLatestFilePath(), {}));
 }
 
 export async function writeLatest(vehicles: Vehicle[]) {
+  return withActor(() => writeLatestNow(vehicles));
+}
+
+async function writeLatestNow(vehicles: Vehicle[]) {
   const current = await readLatest();
   for (const vehicle of vehicles) {
     if (!vehicle.stale) current[vehicle.id] = vehicle;

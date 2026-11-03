@@ -80,6 +80,10 @@ voltdesk-user reset-password ghull
 
 The prompt asks twice and does not echo. Press Enter to generate a password. A reset signs browsers out of that account. Type the username by itself. `<ghull>` is shell redirection. For a script, set `VOLTDESK_PASSWORD` instead of putting the password on the command line.
 
+### People
+
+Each login keeps its own Tesla. On Connections, add a person. They sign in and paste their own Fleet client id and refresh token. Home Assistant, places, charge prices, history, service files, and bot tokens stay with that login. The first account keeps the data that was already on the machine, including container variables such as `TESLA_REFRESH_TOKEN`. Another person's password is reset with `voltdesk-user reset-password`, the same command as before. `voltdesk-user create` adds a login from the shell too.
+
 On Docker the same command is `docker compose exec voltdesk voltdesk-user`. Add `-it` when you want the hidden password prompt.
 
 ## Docker
@@ -92,7 +96,7 @@ docker compose up -d --build
 
 Open `http://<host>:3470`. The published port listens on every interface, same as the LXC. Set `VOLTDESK_BIND=127.0.0.1` in `.env` to keep it on that machine.
 
-Users, settings, history, service files, and the signing secret live in the `voltdesk-data` volume at `/data` inside the container. Copy `.env.example` to `.env` for Home Assistant, Tesla Fleet, Paperless, or a Grok key. Leave `AUTH_SECRET` unset and the container writes a secret into the volume on first start. The placeholder in the example is ignored. Set your own only when it is at least 16 characters.
+Users, each login's settings and history, service files, and the signing secret live in the `voltdesk-data` volume at `/data` inside the container. Per-login files are under `/data/users`. Copy `.env.example` to `.env` for Home Assistant, Tesla Fleet, Paperless, or a Grok key. Leave `AUTH_SECRET` unset and the container writes a secret into the volume on first start. The placeholder in the example is ignored. Set your own only when it is at least 16 characters.
 
 ```bash
 docker compose exec voltdesk voltdesk-user list

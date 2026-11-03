@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   BOT_TOKEN_LIMIT,
   environmentApiToken,
+  environmentApplies,
   getSettings,
   saveSettings,
   toPublicSettings,
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   }
 
   const current = await getSettings();
-  const fromEnvironment = Boolean(await environmentApiToken());
+  const fromEnvironment = (await environmentApplies()) && Boolean(await environmentApiToken());
 
   if (body.revoke) {
     const apiTokens = body.id ? current.apiTokens.filter((item) => item.id !== body.id) : [];

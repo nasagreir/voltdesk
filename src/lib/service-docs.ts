@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { getDataDir } from "@/lib/auth/paths";
+import { withActor } from "@/lib/auth/actor";
+import { activeDataDir } from "@/lib/auth/scope";
 import type { ServiceId } from "@/lib/maintenance";
 
 export const DEFAULT_PAPERLESS_TAG = "VoltDesk";
@@ -96,10 +97,14 @@ export function safeDocumentName(filename: string, ext: DocumentExt): string {
 
 export function localDocumentPath(id: string, ext: DocumentExt): string {
   if (!isDocumentId(id)) throw new Error("Bad document id");
-  return path.join(getDataDir(), "service-files", `${id}.${ext}`);
+  return path.join(activeDataDir(), "service-files", `${id}.${ext}`);
 }
 
 export async function writeLocalDocument(id: string, ext: DocumentExt, bytes: Uint8Array) {
+  return withActor(() => writeLocalDocumentNow(id, ext, bytes));
+}
+
+async function writeLocalDocumentNow(id: string, ext: DocumentExt, bytes: Uint8Array) {
   const file = localDocumentPath(id, ext);
   await fs.mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
@@ -108,11 +113,11 @@ export async function writeLocalDocument(id: string, ext: DocumentExt, bytes: Ui
 }
 
 export async function readLocalDocument(id: string, ext: DocumentExt): Promise<Uint8Array> {
-  return new Uint8Array(await fs.readFile(localDocumentPath(id, ext)));
+  return withActor(async () => new Uint8Array(await fs.readFile(localDocumentPath(id, ext))));
 }
 
 export async function removeLocalDocument(id: string, ext: DocumentExt) {
-  await fs.rm(localDocumentPath(id, ext), { force: true });
+  await withActor(() => fs.rm(localDocumentPath(id, ext), { force: true }));
 }
 
 export interface RemotePaperlessDocument {

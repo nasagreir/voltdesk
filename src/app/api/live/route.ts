@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   }
   const until = parsed.data.enabled ? liveDataUntilFrom() : null;
   await setLiveDataUntil(until);
-  clearDashboardCache();
+  await clearDashboardCache();
   const settings = await getSettings();
   const live = isLiveData(settings.liveDataUntil);
   return NextResponse.json(

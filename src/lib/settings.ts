@@ -1,6 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { getDataDir, getSettingsFilePath } from "@/lib/auth/paths";
+import { actorUsername, withActor } from "@/lib/auth/actor";
+import { userSlug } from "@/lib/auth/paths";
+import { getSettingsFilePath } from "@/lib/auth/scope";
+import { ownerUsername } from "@/lib/auth/users";
 import { readJson, writeJson } from "@/lib/store";
 import { isLiveData } from "@/lib/live-data";
 import { normalizePaperlessTag } from "@/lib/service-docs";
@@ -113,72 +116,80 @@ function pick(
   env: Record<string, string>,
   key: keyof AppSettings,
   envName: string,
+  useEnv: boolean,
 ): string {
   const fromFile = file[key];
   if (typeof fromFile === "string" && fromFile.trim()) return fromFile.trim();
+  if (!useEnv) return "";
   return (env[envName] ?? process.env[envName] ?? "").trim();
 }
 
+async function environmentAppliesInside(): Promise<boolean> {
+  const user = actorUsername();
+  if (!user) return true;
+  const owner = await ownerUsername();
+  return owner != null && userSlug(owner) === userSlug(user);
+}
+
+/** Container env credentials belong to the first login, not to every person. */
+export async function environmentApplies(): Promise<boolean> {
+  return withActor(() => environmentAppliesInside());
+}
+
 export async function getSettings(): Promise<AppSettings> {
-  const [file, env] = await Promise.all([
-    readJson<Partial<AppSettings>>(getSettingsFilePath(), {}),
-    readDotEnv(),
-  ]);
-  const poll = Number(
-    file.pollIntervalSeconds ??
-      env.POLL_INTERVAL_SECONDS ??
-      process.env.POLL_INTERVAL_SECONDS ??
-      DEFAULTS.pollIntervalSeconds,
-  );
-  const rate = Number(
-    file.electricityRateUsd ??
-      env.ELECTRICITY_RATE_USD ??
-      process.env.ELECTRICITY_RATE_USD ??
-      DEFAULTS.electricityRateUsd,
-  );
-  const homeLatRaw = file.homeLat ?? env.HOME_LAT ?? process.env.HOME_LAT;
-  const homeLngRaw = file.homeLng ?? env.HOME_LNG ?? process.env.HOME_LNG;
+  return withActor(async () => loadSettings(await environmentAppliesInside()));
+}
+
+async function loadSettings(useEnv: boolean): Promise<AppSettings> {
+  const file = await readJson<Partial<AppSettings>>(getSettingsFilePath(), {});
+  const env: Record<string, string> = useEnv ? await readDotEnv() : {};
+  const envValue = (name: string) => {
+    if (!useEnv) return undefined;
+    const value = (env[name] ?? process.env[name] ?? "").trim();
+    return value || undefined;
+  };
+  const poll = Number(file.pollIntervalSeconds ?? envValue("POLL_INTERVAL_SECONDS") ?? DEFAULTS.pollIntervalSeconds);
+  const rate = Number(file.electricityRateUsd ?? envValue("ELECTRICITY_RATE_USD") ?? DEFAULTS.electricityRateUsd);
+  const homeLatRaw = file.homeLat ?? (envValue("HOME_LAT") || undefined);
+  const homeLngRaw = file.homeLng ?? (envValue("HOME_LNG") || undefined);
   const homeLat = homeLatRaw == null || homeLatRaw === "" ? null : Number(homeLatRaw);
   const homeLng = homeLngRaw == null || homeLngRaw === "" ? null : Number(homeLngRaw);
-  const workLatRaw = file.workLat ?? env.WORK_LAT ?? process.env.WORK_LAT;
-  const workLngRaw = file.workLng ?? env.WORK_LNG ?? process.env.WORK_LNG;
+  const workLatRaw = file.workLat ?? (envValue("WORK_LAT") || undefined);
+  const workLngRaw = file.workLng ?? (envValue("WORK_LNG") || undefined);
   const workLat = workLatRaw == null || workLatRaw === "" ? null : Number(workLatRaw);
   const workLng = workLngRaw == null || workLngRaw === "" ? null : Number(workLngRaw);
-  const workRate = Number(file.workRateUsd ?? env.WORK_RATE_USD ?? process.env.WORK_RATE_USD ?? DEFAULTS.workRateUsd);
+  const workRate = Number(file.workRateUsd ?? envValue("WORK_RATE_USD") ?? DEFAULTS.workRateUsd);
 
   return {
-    source: asSource(String(file.source ?? env.VOLTDESK_SOURCE ?? process.env.VOLTDESK_SOURCE ?? "auto")),
-    homeAssistantUrl: pick(file, env, "homeAssistantUrl", "HOME_ASSISTANT_URL").replace(/\/$/, ""),
-    homeAssistantToken: pick(file, env, "homeAssistantToken", "HOME_ASSISTANT_TOKEN"),
-    teslaEntityPrefix: pick(file, env, "teslaEntityPrefix", "TESLA_ENTITY_PREFIX"),
-    teslaRefreshToken: pick(file, env, "teslaRefreshToken", "TESLA_REFRESH_TOKEN"),
-    teslaClientId: pick(file, env, "teslaClientId", "TESLA_CLIENT_ID"),
-    teslaRegion: asRegion(
-      String(file.teslaRegion ?? env.TESLA_REGION ?? process.env.TESLA_REGION ?? "na"),
-    ),
+    source: asSource(String(file.source ?? envValue("VOLTDESK_SOURCE") ?? "auto")),
+    homeAssistantUrl: pick(file, env, "homeAssistantUrl", "HOME_ASSISTANT_URL", useEnv).replace(/\/$/, ""),
+    homeAssistantToken: pick(file, env, "homeAssistantToken", "HOME_ASSISTANT_TOKEN", useEnv),
+    teslaEntityPrefix: pick(file, env, "teslaEntityPrefix", "TESLA_ENTITY_PREFIX", useEnv),
+    teslaRefreshToken: pick(file, env, "teslaRefreshToken", "TESLA_REFRESH_TOKEN", useEnv),
+    teslaClientId: pick(file, env, "teslaClientId", "TESLA_CLIENT_ID", useEnv),
+    teslaRegion: asRegion(String(file.teslaRegion ?? envValue("TESLA_REGION") ?? "na")),
     pollIntervalSeconds: Number.isFinite(poll) ? Math.min(3600, Math.max(15, poll)) : 60,
-    distanceUnit: file.distanceUnit === "km" || env.DISTANCE_UNIT === "km" ? "km" : "mi",
-    tempUnit: file.tempUnit === "C" || env.TEMP_UNIT === "C" ? "C" : "F",
+    distanceUnit: file.distanceUnit === "km" || envValue("DISTANCE_UNIT") === "km" ? "km" : "mi",
+    tempUnit: file.tempUnit === "C" || envValue("TEMP_UNIT") === "C" ? "C" : "F",
     electricityRateUsd: Number.isFinite(rate) ? rate : DEFAULTS.electricityRateUsd,
-    homeLabel: (file.homeLabel || env.HOME_LABEL || DEFAULTS.homeLabel).slice(0, 40),
+    homeLabel: (file.homeLabel || envValue("HOME_LABEL") || DEFAULTS.homeLabel).slice(0, 40),
     homeLat: homeLat != null && Number.isFinite(homeLat) ? homeLat : null,
     homeLng: homeLng != null && Number.isFinite(homeLng) ? homeLng : null,
-    homeRadiusM: Number(file.homeRadiusM ?? env.HOME_RADIUS_M ?? DEFAULTS.homeRadiusM) || 200,
-    workLabel: (file.workLabel || env.WORK_LABEL || DEFAULTS.workLabel).slice(0, 40),
+    homeRadiusM: Number(file.homeRadiusM ?? envValue("HOME_RADIUS_M") ?? DEFAULTS.homeRadiusM) || 200,
+    workLabel: (file.workLabel || envValue("WORK_LABEL") || DEFAULTS.workLabel).slice(0, 40),
     workLat: workLat != null && Number.isFinite(workLat) ? workLat : null,
     workLng: workLng != null && Number.isFinite(workLng) ? workLng : null,
-    workRadiusM: Number(file.workRadiusM ?? env.WORK_RADIUS_M ?? DEFAULTS.workRadiusM) || 200,
+    workRadiusM: Number(file.workRadiusM ?? envValue("WORK_RADIUS_M") ?? DEFAULTS.workRadiusM) || 200,
     workRateUsd: Number.isFinite(workRate) ? workRate : DEFAULTS.workRateUsd,
     liveDataUntil: typeof file.liveDataUntil === "string" && file.liveDataUntil.trim() ? file.liveDataUntil : null,
     apiToken: "",
     apiTokens: collectBotTokens(file),
     grokApiKey: typeof file.grokApiKey === "string" ? file.grokApiKey.trim() : "",
-    paperlessUrl: pick(file, env, "paperlessUrl", "PAPERLESS_URL").replace(/\/$/, ""),
+    paperlessUrl: pick(file, env, "paperlessUrl", "PAPERLESS_URL", useEnv).replace(/\/$/, ""),
     paperlessToken: typeof file.paperlessToken === "string" ? file.paperlessToken.trim() : "",
     paperlessTag: normalizePaperlessTag(
       (typeof file.paperlessTag === "string" && file.paperlessTag.trim()) ||
-        env.PAPERLESS_TAG ||
-        process.env.PAPERLESS_TAG ||
+        envValue("PAPERLESS_TAG") ||
         "VoltDesk",
     ),
   };
@@ -207,15 +218,20 @@ export async function environmentGrokKey(): Promise<string> {
 
 /** Writes only the xAI key onto the settings file so env secrets are not copied in. */
 export async function saveGrokApiKey(apiKey: string) {
-  const file = await readJson<Record<string, unknown>>(getSettingsFilePath(), {});
-  file.grokApiKey = apiKey.trim();
-  await fs.mkdir(getDataDir(), { recursive: true });
-  await writeJson(getSettingsFilePath(), file);
+  await withActor(async () => {
+    const file = await readJson<Record<string, unknown>>(getSettingsFilePath(), {});
+    file.grokApiKey = apiKey.trim();
+    await fs.mkdir(path.dirname(getSettingsFilePath()), { recursive: true });
+    await writeJson(getSettingsFilePath(), file);
+  });
 }
 
 export async function acceptedBotTokens(): Promise<string[]> {
-  const [settings, envToken] = await Promise.all([getSettings(), environmentApiToken()]);
-  return [...new Set([...settings.apiTokens.map((item) => item.token), envToken].filter(Boolean))];
+  return withActor(async () => {
+    const settings = await getSettings();
+    const envToken = (await environmentAppliesInside()) ? await environmentApiToken() : "";
+    return [...new Set([...settings.apiTokens.map((item) => item.token), envToken].filter(Boolean))];
+  });
 }
 
 export function demoForced(settings: AppSettings): boolean {
@@ -281,15 +297,20 @@ export function toPublicSettings(
 }
 
 export async function setLiveDataUntil(until: string | null) {
-  const file = await readJson<Record<string, unknown>>(getSettingsFilePath(), {});
-  file.liveDataUntil = until;
-  await fs.mkdir(getDataDir(), { recursive: true });
-  await writeJson(getSettingsFilePath(), file);
+  await withActor(async () => {
+    const file = await readJson<Record<string, unknown>>(getSettingsFilePath(), {});
+    file.liveDataUntil = until;
+    await fs.mkdir(path.dirname(getSettingsFilePath()), { recursive: true });
+    await writeJson(getSettingsFilePath(), file);
+  });
 }
 
 export async function saveSettings(next: AppSettings) {
-  await fs.mkdir(getDataDir(), { recursive: true });
-  await writeJson(getSettingsFilePath(), next);
+  await withActor(async () => {
+    const file = getSettingsFilePath();
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await writeJson(file, next);
+  });
 }
 
 export async function updateRefreshToken(token: string) {

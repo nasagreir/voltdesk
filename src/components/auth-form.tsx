@@ -69,7 +69,7 @@ export function AuthForm({ mode }: { mode: "login" | "setup" }) {
           <p className="text-sm text-muted-foreground">
             {mode === "setup"
               ? "This container has no account yet. The username and password stay on this machine."
-              : "The garage is on this container. Sign in with the account created at first start."}
+              : "The garage is on this container. Sign in with your VoltDesk account."}
           </p>
           {error && (
             <Alert variant="destructive">
