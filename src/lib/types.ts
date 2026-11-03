@@ -190,6 +190,16 @@ export interface VehicleSample {
   fastCharger?: boolean;
   softwareVersion?: string;
   activity?: VehicleActivity;
+  locked?: boolean | null;
+  sentry?: boolean | null;
+  climateOn?: boolean;
+  chargeRateMph?: number;
+  tpmsPsi?: TirePressures;
+  doorOpen?: boolean;
+  windowsOpen?: boolean;
+  frunkOpen?: boolean;
+  trunkOpen?: boolean;
+  chargePortOpen?: boolean;
 }
 
 export interface DriveSession {

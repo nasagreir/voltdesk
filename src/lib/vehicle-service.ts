@@ -13,6 +13,7 @@ import { summarizeCharges } from "@/lib/charge-cost";
 import { applyChargePrices, readChargePrices } from "@/lib/charge-prices";
 import { dailyDistance } from "@/lib/daily-distance";
 import { speedOverDrives } from "@/lib/speed";
+import { dailyReadings, type ReadingMetric } from "@/lib/reading-series";
 import { estimateTripRange, presentTripRange } from "@/lib/trip-range";
 import { demoForced, getSettings } from "@/lib/settings";
 import { fetchTeslaVehicles, TeslaRequestError, wakeTeslaVehicle } from "@/lib/tesla-fleet";
@@ -421,12 +422,25 @@ export async function getSpeedStats(from: Date, to: Date, fromDay: string, toDay
     const ended = new Date(drive.endedAt).getTime();
     return ended >= from.getTime() && started <= to.getTime();
   });
+  const units = { distance: settings.distanceUnit, temp: settings.tempUnit };
+  const series = dailyReadings(samples, "speed", fromDay, toDay, units);
   return {
     from: fromDay,
     to: toDay,
     unit: settings.distanceUnit,
     ...speedOverDrives(drives),
+    points: "error" in series ? [] : series.points,
   };
+}
+
+export async function getReadingSeries(metric: ReadingMetric, fromDay: string, toDay: string, vehicleId?: string | null) {
+  const { settings, samples } = await contextFor(vehicleId);
+  const series = dailyReadings(samples, metric, fromDay, toDay, {
+    distance: settings.distanceUnit,
+    temp: settings.tempUnit,
+  });
+  if ("error" in series) return series;
+  return { metric, from: fromDay, to: toDay, ...series };
 }
 
 export async function getChargeSummary(from: Date, to: Date, vehicleId?: string | null) {

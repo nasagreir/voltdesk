@@ -7,6 +7,7 @@ import { GrokSuggestions } from "@/components/dashboard/grok-suggestions";
 import { LiveData } from "@/components/dashboard/live-data";
 import { ChargeHistory } from "@/components/dashboard/charge-history";
 import { OdometerChart } from "@/components/dashboard/odometer-chart";
+import { ReadingHistory } from "@/components/dashboard/reading-history";
 import { SpeedStats } from "@/components/dashboard/speed-stats";
 import { ServiceSummary } from "@/components/dashboard/service-summary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -315,14 +316,14 @@ export function Garage() {
         <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-4 min-[900px]:gap-3 short:gap-1.5">
           <OdometerChart vehicleId={vehicle.id} unit={payload.units.distance} value={vehicle.display.odometer} />
           <SpeedStats vehicleId={vehicle.id} unit={payload.units.distance} value={vehicle.display.speed} />
-          <Fact label="Motor" value={vehicle.display.power} />
-          <Fact label="Elevation" value={vehicle.display.elevation} />
-          <Fact label="Inside" value={vehicle.display.inside} />
-          <Fact label="Outside" value={vehicle.display.outside} />
-          <Fact label="Locked" value={yesNo(vehicle.locked, "Locked", "Unlocked")} />
-          <Fact label="Sentry" value={yesNo(vehicle.sentry, "On", "Off")} />
-          <Fact label="Climate" value={vehicle.climateOn ? `On ${vehicle.display.setpoint}` : "Off"} />
-          <Fact label="Updated" value={vehicle.display.updated} />
+          <ReadingHistory vehicleId={vehicle.id} metric="power" idPrefix="motor" label="Motor" value={vehicle.display.power} />
+          <ReadingHistory vehicleId={vehicle.id} metric="elevation" idPrefix="elevation" value={vehicle.display.elevation} />
+          <ReadingHistory vehicleId={vehicle.id} metric="inside" idPrefix="inside" value={vehicle.display.inside} />
+          <ReadingHistory vehicleId={vehicle.id} metric="outside" idPrefix="outside" value={vehicle.display.outside} />
+          <ReadingHistory vehicleId={vehicle.id} metric="locked" idPrefix="locked" value={yesNo(vehicle.locked, "Locked", "Unlocked")} />
+          <ReadingHistory vehicleId={vehicle.id} metric="sentry" idPrefix="sentry" value={yesNo(vehicle.sentry, "On", "Off")} />
+          <ReadingHistory vehicleId={vehicle.id} metric="climate" idPrefix="climate" value={vehicle.climateOn ? `On ${vehicle.display.setpoint}` : "Off"} />
+          <ReadingHistory vehicleId={vehicle.id} metric="readings" idPrefix="updated" label="Updated" value={vehicle.display.updated} />
         </div>
       </div>
 
@@ -333,8 +334,8 @@ export function Garage() {
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
             <Fact label="State" value={vehicle.chargingState || "—"} />
-            <Fact label="Power" value={vehicle.display.chargerPower} />
-            <Fact label="Rate" value={vehicle.display.chargeRate} />
+            <ReadingHistory vehicleId={vehicle.id} metric="charger" idPrefix="charger" label="Power" value={vehicle.display.chargerPower} />
+            <ReadingHistory vehicleId={vehicle.id} metric="chargeRate" idPrefix="rate" label="Rate" value={vehicle.display.chargeRate} />
             <Fact label="Time to limit" value={vehicle.display.timeToFull} />
             <Fact label="Done by" value={vehicle.display.doneBy} />
             <Fact label="Added" value={vehicle.display.energyAdded} />
@@ -351,12 +352,12 @@ export function Garage() {
             <CardTitle>Body</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <Fact label="Doors" value={vehicle.doorOpen ? "Open" : "Closed"} />
-            <Fact label="Windows" value={vehicle.windowsOpen ? "Open" : "Closed"} />
-            <Fact label="Frunk" value={vehicle.frunkOpen ? "Open" : "Closed"} />
-            <Fact label="Trunk" value={vehicle.trunkOpen ? "Open" : "Closed"} />
-            <Fact label="Charge port" value={vehicle.chargePortOpen ? "Open" : "Closed"} />
-            <Fact label="Software" value={vehicle.softwareVersion || "—"} />
+            <ReadingHistory vehicleId={vehicle.id} metric="doors" idPrefix="doors" value={vehicle.doorOpen ? "Open" : "Closed"} />
+            <ReadingHistory vehicleId={vehicle.id} metric="windows" idPrefix="windows" value={vehicle.windowsOpen ? "Open" : "Closed"} />
+            <ReadingHistory vehicleId={vehicle.id} metric="frunk" idPrefix="frunk" value={vehicle.frunkOpen ? "Open" : "Closed"} />
+            <ReadingHistory vehicleId={vehicle.id} metric="trunk" idPrefix="trunk" value={vehicle.trunkOpen ? "Open" : "Closed"} />
+            <ReadingHistory vehicleId={vehicle.id} metric="port" idPrefix="port" label="Charge port" value={vehicle.chargePortOpen ? "Open" : "Closed"} />
+            <ReadingHistory vehicleId={vehicle.id} metric="software" idPrefix="software" value={vehicle.softwareVersion || "—"} />
           </CardContent>
         </Card>
         <Card>
@@ -364,10 +365,10 @@ export function Garage() {
             <CardTitle>Tires</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <Fact label="Front left" value={vehicle.display.tpms.fl} />
-            <Fact label="Front right" value={vehicle.display.tpms.fr} />
-            <Fact label="Rear left" value={vehicle.display.tpms.rl} />
-            <Fact label="Rear right" value={vehicle.display.tpms.rr} />
+            <ReadingHistory vehicleId={vehicle.id} metric="tires" idPrefix="tire-fl" label="Front left" value={vehicle.display.tpms.fl} />
+            <ReadingHistory vehicleId={vehicle.id} metric="tires" idPrefix="tire-fr" label="Front right" value={vehicle.display.tpms.fr} />
+            <ReadingHistory vehicleId={vehicle.id} metric="tires" idPrefix="tire-rl" label="Rear left" value={vehicle.display.tpms.rl} />
+            <ReadingHistory vehicleId={vehicle.id} metric="tires" idPrefix="tire-rr" label="Rear right" value={vehicle.display.tpms.rr} />
           </CardContent>
         </Card>
         <Card>

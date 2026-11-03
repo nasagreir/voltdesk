@@ -135,6 +135,41 @@ function activityFor(current: Frame): VehicleActivity {
   return "parked";
 }
 
+function lived(
+  driving: boolean,
+  charging: boolean,
+  lat: number,
+  lng: number,
+  fast: boolean,
+  chargerPowerKw: number,
+): Pick<
+  VehicleSample,
+  | "locked"
+  | "sentry"
+  | "climateOn"
+  | "chargeRateMph"
+  | "tpmsPsi"
+  | "doorOpen"
+  | "windowsOpen"
+  | "frunkOpen"
+  | "trunkOpen"
+  | "chargePortOpen"
+> {
+  const atWork = Math.abs(lat - WORK.lat) < 0.01 && Math.abs(lng - WORK.lng) < 0.01;
+  return {
+    locked: !driving,
+    sentry: !driving && atWork,
+    climateOn: driving,
+    chargeRateMph: charging ? (fast || chargerPowerKw > 50 ? 520 : 32) : 0,
+    tpmsPsi: { fl: 42, fr: 42.2, rl: 41.8, rr: 42.1 },
+    doorOpen: false,
+    windowsOpen: false,
+    frunkOpen: false,
+    trunkOpen: false,
+    chargePortOpen: charging,
+  };
+}
+
 function sampleFrom(
   frameAt: Frame,
   odoBase: number,
@@ -183,6 +218,7 @@ function sampleFrom(
     fastCharger: false,
     softwareVersion,
     activity: activityFor(frameAt),
+    ...lived(driving, charging, lat, lng, false, frameAt.power),
   };
 }
 
@@ -278,6 +314,7 @@ function parkedCharge(
     fastCharger: fast,
     softwareVersion: version,
     activity: chargingState === "Charging" ? "charging" : "parked",
+    ...lived(false, chargingState === "Charging", lat, lng, fast, power),
   };
 }
 
@@ -333,22 +370,22 @@ export function vehicleFromSample(
     usableBatteryPercent: sample.usableBatteryPercent ?? sample.batteryPercent,
     chargingState: sample.chargingState,
     chargerPowerKw: sample.chargerPowerKw,
-    chargeRateMph: state === "charging" ? 36 : 0,
+    chargeRateMph: sample.chargeRateMph ?? (state === "charging" ? 36 : 0),
     minutesToFull,
     energyAddedKwh: sample.energyAddedKwh,
     cable: state === "charging" ? "Wall Connector" : "",
-    chargePortOpen: state === "charging",
     insideTempC: sample.insideTempC,
     outsideTempC: sample.outsideTempC,
-    climateOn: state === "driving",
+    climateOn: sample.climateOn ?? state === "driving",
     setpointC: 21,
-    locked: state !== "driving",
-    sentry: Boolean(atWork && state !== "driving"),
-    windowsOpen: false,
-    frunkOpen: false,
-    trunkOpen: false,
-    doorOpen: false,
-    tpmsPsi: { fl: 42, fr: 42.2, rl: 41.8, rr: 42.1 },
+    locked: sample.locked ?? state !== "driving",
+    sentry: sample.sentry ?? Boolean(atWork && state !== "driving"),
+    windowsOpen: sample.windowsOpen ?? false,
+    frunkOpen: sample.frunkOpen ?? false,
+    trunkOpen: sample.trunkOpen ?? false,
+    doorOpen: sample.doorOpen ?? false,
+    chargePortOpen: sample.chargePortOpen ?? state === "charging",
+    tpmsPsi: sample.tpmsPsi ?? { fl: 42, fr: 42.2, rl: 41.8, rr: 42.1 },
     lat: sample.lat,
     lng: sample.lng,
     heading: state === "driving" ? (sample.shiftState === "D" ? 120 : 300) : 18,

@@ -35,6 +35,16 @@ export function vehicleToSample(vehicle: Vehicle): VehicleSample {
     fastCharger: vehicle.fastCharger ?? false,
     softwareVersion: vehicle.softwareVersion || undefined,
     activity: vehicle.state,
+    locked: vehicle.locked,
+    sentry: vehicle.sentry,
+    climateOn: vehicle.climateOn,
+    chargeRateMph: vehicle.chargeRateMph,
+    tpmsPsi: vehicle.tpmsPsi,
+    doorOpen: vehicle.doorOpen,
+    windowsOpen: vehicle.windowsOpen,
+    frunkOpen: vehicle.frunkOpen,
+    trunkOpen: vehicle.trunkOpen,
+    chargePortOpen: vehicle.chargePortOpen,
   };
 }
 
