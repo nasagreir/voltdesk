@@ -48,10 +48,10 @@ export function AuthForm({ mode }: { mode: "login" | "setup" }) {
   }
 
   return (
-    <main className="garage-grid flex min-h-dvh items-center justify-center px-4 py-10">
+    <main className="garage-grid flex min-h-dvh items-center justify-center overflow-y-auto px-4 py-8 short:items-start short:py-3">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-md space-y-4 rounded-2xl border border-white/10 bg-card/90 p-6 shadow-2xl"
+        className="w-full max-w-md space-y-4 rounded-2xl border border-white/10 bg-card/90 p-6 shadow-2xl short:space-y-3 short:p-4"
       >
         <div className="flex items-center gap-3">
           <span className="flex size-10 items-center justify-center rounded-xl bg-[#e31937] font-semibold text-white">

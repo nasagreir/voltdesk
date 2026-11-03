@@ -3,6 +3,8 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *, .super-dark *));
+@custom-variant short (@media (max-height: 430px));
+@custom-variant book (@media (horizontal-viewport-segments: 2));
 
 @theme inline {
   --color-background: var(--background);
@@ -121,12 +123,50 @@
   padding-right: max(1rem, env(safe-area-inset-right));
 }
 
-.safe-pb-nav {
-  padding-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+.safe-pt {
+  padding-top: env(safe-area-inset-top);
 }
 
-@media (min-width: 768px) {
+.safe-pb-nav {
+  padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 560px) {
   .safe-pb-nav {
-    padding-bottom: 2rem;
+    padding-bottom: 1.25rem;
+  }
+}
+
+/* iPhone Duo inner display, held like a book. The hinge is the gap between the two segments. */
+@media (horizontal-viewport-segments: 2) {
+  .duo-header-row,
+  .duo-fold {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    max-width: none;
+    width: 100%;
+    column-gap: 1.25rem;
+  }
+}
+
+@supports (width: env(viewport-segment-width 0 0, 1px)) {
+  @media (horizontal-viewport-segments: 2) {
+    .duo-header-row,
+    .duo-fold {
+      grid-template-columns:
+        env(viewport-segment-width 0 0)
+        env(viewport-segment-width 1 0);
+      column-gap: 0;
+    }
+
+    .duo-fold > :first-child,
+    .duo-header-row > :first-child {
+      padding-right: 0.75rem;
+    }
+
+    .duo-fold > :last-child,
+    .duo-header-row > :last-child {
+      padding-left: 0.75rem;
+    }
   }
 }

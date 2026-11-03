@@ -17,7 +17,7 @@ export function BatteryDial({
   const offset = circumference * (1 - clamped / 100);
   const color = clamped <= 20 ? "#e31937" : clamped <= 50 ? "#f5b942" : "#3dd68c";
   return (
-    <div className="relative mx-auto size-44">
+    <div className="relative mx-auto size-36 min-[420px]:size-44 short:size-28">
       <svg
         viewBox="0 0 144 144"
         className="size-full -rotate-90"

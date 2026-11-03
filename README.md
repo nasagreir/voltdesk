@@ -11,6 +11,8 @@ VoltDesk covers the TeslaMate vehicle screens in its own UI:
 - Vampire drain, states, mileage, temperatures, software updates, visited points, and a timeline
 - Geofences with a per-place electricity rate and session fee, plus address lookup for spots outside a fence
 
+The layout follows the iPhone Duo viewports from Safari 27.1: the 382px outer display (and Split View) keeps the bottom bar, the 669px inner display in portrait uses the top bar, and the 951px inner display in landscape puts the battery on one side of the hinge and the live stats on the other. Folded like a book, the header and that first row line up with the two viewport segments.
+
 It stores about 400 days of samples. While the car is driving or charging it polls about every 15 seconds. While the car is parked or asleep it keeps your normal interval and does not wake the car. That is polling, not TeslaMate's streaming websocket.
 
 Not included, on purpose:

@@ -18,9 +18,9 @@ const STATE_LABEL: Record<VehicleView["state"], string> = {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-white/5 px-3 py-3">
+    <div className="min-w-0 rounded-xl bg-white/5 px-3 py-3 short:px-2 short:py-2">
       <div className="text-[11px] tracking-wide text-muted-foreground uppercase">{label}</div>
-      <div className="mt-1 font-heading text-lg">{value}</div>
+      <div className="mt-1 font-heading text-base leading-tight break-words min-[420px]:text-lg short:text-sm">{value}</div>
     </div>
   );
 }
@@ -115,11 +115,11 @@ export function Garage() {
           <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
             {payload.mode === "demo" ? "Demo" : "Live"} · {payload.source}
           </p>
-          <h1 className="font-heading text-2xl tracking-tight sm:text-3xl">
+          <h1 className="font-heading text-2xl tracking-tight short:text-xl min-[900px]:text-3xl">
             {vehicle.name}
             <span className="text-muted-foreground"> · {vehicle.model}</span>
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{payload.message}</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground short:line-clamp-2">{payload.message}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {payload.vehicles.length > 1 &&
@@ -144,9 +144,9 @@ export function Garage() {
         </Alert>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
+      <div className="duo-fold grid gap-4 short:grid-cols-[8.5rem_minmax(0,1fr)] short:gap-2 min-[900px]:grid-cols-[13rem_minmax(0,1fr)]">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 short:px-3 short:pt-3">
             <BatteryDial
               percent={vehicle.batteryPercent}
               limit={vehicle.chargeLimitPercent}
@@ -159,7 +159,7 @@ export function Garage() {
             </p>
           </CardContent>
         </Card>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-4 min-[900px]:gap-3 short:gap-1.5">
           <Fact label="Odometer" value={vehicle.display.odometer} />
           <Fact label="Speed" value={vehicle.display.speed} />
           <Fact label="Motor" value={vehicle.display.power} />
@@ -173,7 +173,7 @@ export function Garage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 min-[560px]:grid-cols-2 book:gap-x-7">
         <Card>
           <CardHeader>
             <CardTitle>Charge</CardTitle>
@@ -235,7 +235,7 @@ export function Garage() {
             {vehicle.lat != null && vehicle.lng != null ? (
               <iframe
                 title="Vehicle location"
-                className="h-52 w-full rounded-xl border border-white/10"
+                className="h-40 w-full rounded-xl border border-white/10 min-[420px]:h-52 short:h-28"
                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${vehicle.lng - 0.02}%2C${vehicle.lat - 0.015}%2C${vehicle.lng + 0.02}%2C${vehicle.lat + 0.015}&layer=mapnik&marker=${vehicle.lat}%2C${vehicle.lng}`}
               />
             ) : (
