@@ -44,19 +44,37 @@ export function applyHomeSettings(fences: Geofence[], settings: AppSettings): Ge
   return [home, ...fences.filter((fence) => fence.id !== "home")];
 }
 
+export function applyWorkSettings(fences: Geofence[], settings: AppSettings): Geofence[] {
+  if (settings.workLat == null || settings.workLng == null) return fences;
+  const previous = fences.find((fence) => fence.id === "work");
+  const work: Geofence = {
+    id: "work",
+    name: settings.workLabel.trim() || "Work",
+    lat: settings.workLat,
+    lng: settings.workLng,
+    radiusM: settings.workRadiusM,
+    costPerKwh: settings.workRateUsd,
+    sessionFee: previous?.sessionFee ?? 0,
+  };
+  const index = fences.findIndex((fence) => fence.id === "work");
+  if (index < 0) return [...fences, work];
+  return fences.map((fence, i) => (i === index ? work : fence));
+}
+
+export function applySavedPlaces(fences: Geofence[], settings: AppSettings): Geofence[] {
+  return applyWorkSettings(applyHomeSettings(fences, settings), settings);
+}
+
 export async function resolveFences(
   settings: AppSettings,
   mode: ConnectionMode,
 ): Promise<{ fences: Geofence[]; persisted: boolean }> {
   const saved = await readSavedFences();
-  if (saved) return { fences: applyHomeSettings(saved, settings), persisted: true };
+  if (saved) return { fences: applySavedPlaces(saved, settings), persisted: true };
   if (mode === "demo" || settings.source === "demo") {
-    return { fences: applyHomeSettings(DEMO_FENCES, settings), persisted: false };
+    return { fences: applySavedPlaces(DEMO_FENCES, settings), persisted: false };
   }
-  if (settings.homeLat != null && settings.homeLng != null) {
-    return { fences: applyHomeSettings([], settings), persisted: false };
-  }
-  return { fences: [], persisted: false };
+  return { fences: applySavedPlaces([], settings), persisted: false };
 }
 
 export async function readAddresses(): Promise<Record<string, string>> {

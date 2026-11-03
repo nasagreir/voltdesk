@@ -22,6 +22,11 @@ const DEFAULTS: AppSettings = {
   homeLat: null,
   homeLng: null,
   homeRadiusM: 200,
+  workLabel: "Work",
+  workLat: null,
+  workLng: null,
+  workRadiusM: 200,
+  workRateUsd: 0,
   liveDataUntil: null,
   apiToken: "",
   apiTokens: [],
@@ -135,6 +140,11 @@ export async function getSettings(): Promise<AppSettings> {
   const homeLngRaw = file.homeLng ?? env.HOME_LNG ?? process.env.HOME_LNG;
   const homeLat = homeLatRaw == null || homeLatRaw === "" ? null : Number(homeLatRaw);
   const homeLng = homeLngRaw == null || homeLngRaw === "" ? null : Number(homeLngRaw);
+  const workLatRaw = file.workLat ?? env.WORK_LAT ?? process.env.WORK_LAT;
+  const workLngRaw = file.workLng ?? env.WORK_LNG ?? process.env.WORK_LNG;
+  const workLat = workLatRaw == null || workLatRaw === "" ? null : Number(workLatRaw);
+  const workLng = workLngRaw == null || workLngRaw === "" ? null : Number(workLngRaw);
+  const workRate = Number(file.workRateUsd ?? env.WORK_RATE_USD ?? process.env.WORK_RATE_USD ?? DEFAULTS.workRateUsd);
 
   return {
     source: asSource(String(file.source ?? env.VOLTDESK_SOURCE ?? process.env.VOLTDESK_SOURCE ?? "auto")),
@@ -154,6 +164,11 @@ export async function getSettings(): Promise<AppSettings> {
     homeLat: homeLat != null && Number.isFinite(homeLat) ? homeLat : null,
     homeLng: homeLng != null && Number.isFinite(homeLng) ? homeLng : null,
     homeRadiusM: Number(file.homeRadiusM ?? env.HOME_RADIUS_M ?? DEFAULTS.homeRadiusM) || 200,
+    workLabel: (file.workLabel || env.WORK_LABEL || DEFAULTS.workLabel).slice(0, 40),
+    workLat: workLat != null && Number.isFinite(workLat) ? workLat : null,
+    workLng: workLng != null && Number.isFinite(workLng) ? workLng : null,
+    workRadiusM: Number(file.workRadiusM ?? env.WORK_RADIUS_M ?? DEFAULTS.workRadiusM) || 200,
+    workRateUsd: Number.isFinite(workRate) ? workRate : DEFAULTS.workRateUsd,
     liveDataUntil: typeof file.liveDataUntil === "string" && file.liveDataUntil.trim() ? file.liveDataUntil : null,
     apiToken: "",
     apiTokens: collectBotTokens(file),
@@ -237,6 +252,11 @@ export function toPublicSettings(
     homeLat: settings.homeLat,
     homeLng: settings.homeLng,
     homeRadiusM: settings.homeRadiusM,
+    workLabel: settings.workLabel,
+    workLat: settings.workLat,
+    workLng: settings.workLng,
+    workRadiusM: settings.workRadiusM,
+    workRateUsd: settings.workRateUsd,
     liveData: isLiveData(settings.liveDataUntil),
     liveDataUntil: isLiveData(settings.liveDataUntil) ? settings.liveDataUntil : null,
     demoForced: demoForced(settings),

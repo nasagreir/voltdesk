@@ -91,7 +91,7 @@ export function PlacesBoard() {
         <p className="max-w-2xl text-sm text-muted-foreground">
           Geofences name drives and set the price of a charge. Each place has its own dollars per kWh and an optional session fee.
           {persisted ? " These are saved on this server." : " These are the defaults until you save."}{" "}
-          Home location and the home electricity rate are set on{" "}
+          Home and work locations are set on{" "}
           <Link href="/settings#home-charging" className="underline-offset-2 hover:underline">
             Connections
           </Link>

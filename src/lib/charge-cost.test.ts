@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { formatChargeCost, summarizeCharges } from "./charge-cost";
 import { applyChargePrices } from "./charge-prices";
 import { formatDoneBy, money } from "./format";
-import { applyHomeSettings } from "./places";
+import { applyHomeSettings, applySavedPlaces } from "./places";
 import { deriveCharges } from "./sessions";
 import { chicagoDate } from "./time";
 import type { AppSettings, Geofence, VehicleSample } from "./types";
@@ -127,5 +127,37 @@ describe("home charging settings", () => {
     assert.equal(home?.radiusM, 180);
     assert.equal(home?.sessionFee, 1.25);
     assert.equal(next.find((fence) => fence.id === "work")?.name, "Work");
+  });
+
+  it("tags a charge inside the work circle and leaves that circle alone until it is set", () => {
+    const saved: Geofence[] = [
+      { id: "home", name: "Home", lat: 41.9482, lng: -87.6684, radiusM: 250, costPerKwh: 0.14, sessionFee: 0 },
+      { id: "work", name: "Work", lat: 41.8858, lng: -87.6324, radiusM: 200, costPerKwh: 0, sessionFee: 1.5 },
+    ];
+    const untouched = applySavedPlaces(saved, { workLat: null, workLng: null } as AppSettings);
+    assert.equal(untouched.find((fence) => fence.id === "work")?.lat, 41.8858);
+    const placed = applySavedPlaces(saved, {
+      workLat: 41.829,
+      workLng: -87.633,
+      workLabel: "Office",
+      workRadiusM: 180,
+      workRateUsd: 0,
+    } as AppSettings);
+    const office = placed.find((fence) => fence.id === "work");
+    assert.equal(office?.name, "Office");
+    assert.equal(office?.sessionFee, 1.5);
+    assert.equal(placed.find((fence) => fence.id === "home")?.name, "Home");
+    const charges = deriveCharges(
+      [
+        sample({ at: "2026-11-01T22:00:00.000Z", lat: 41.829, lng: -87.633, batteryPercent: 20, energyAddedKwh: 1, chargerPowerKw: 150, fastCharger: true }),
+        sample({ at: "2026-11-01T22:20:00.000Z", lat: 41.829, lng: -87.633, chargingState: "Complete", batteryPercent: 60, energyAddedKwh: 30, chargerPowerKw: 0, fastCharger: true }),
+      ],
+      0.14,
+      placed,
+    );
+    assert.equal(charges[0]?.billing, "work");
+    assert.equal(charges[0]?.placeLabel, "Office");
+    assert.equal(charges[0]?.free, false);
+    assert.equal(charges[0]?.costUsd, 1.5);
   });
 });

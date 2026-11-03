@@ -332,6 +332,66 @@ export function SettingsForm() {
         </CardContent>
       </Card>
 
+      <Card id="work-charging" className="scroll-mt-24">
+        <CardHeader>
+          <CardTitle>Work charging</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <p className="text-sm text-muted-foreground sm:col-span-2">
+            Charges inside this circle are tagged as work. Use 0 when charging there is free. Leave latitude and longitude blank to keep a work place you already saved.
+          </p>
+          <Field label="Electricity rate (USD / kWh)">
+            <Input
+              type="number"
+              step="0.01"
+              min={0}
+              value={settings.workRateUsd}
+              onChange={(event) =>
+                setSettings({ ...settings, workRateUsd: Number(event.target.value) })
+              }
+            />
+          </Field>
+          <Field label="Work name">
+            <Input
+              value={settings.workLabel}
+              onChange={(event) => setSettings({ ...settings, workLabel: event.target.value })}
+            />
+          </Field>
+          <Field label="Work latitude">
+            <Input
+              value={settings.workLat ?? ""}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  workLat: event.target.value === "" ? null : Number(event.target.value),
+                })
+              }
+            />
+          </Field>
+          <Field label="Work longitude">
+            <Input
+              value={settings.workLng ?? ""}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  workLng: event.target.value === "" ? null : Number(event.target.value),
+                })
+              }
+            />
+          </Field>
+          <Field label="Work radius (meters)">
+            <Input
+              type="number"
+              min={20}
+              value={settings.workRadiusM}
+              onChange={(event) =>
+                setSettings({ ...settings, workRadiusM: Number(event.target.value) })
+              }
+            />
+          </Field>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Units</CardTitle>

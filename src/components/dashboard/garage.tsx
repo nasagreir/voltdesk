@@ -294,9 +294,13 @@ export function Garage() {
               )}
               <p className="text-xs text-muted-foreground">
                 <Link href="/settings#home-charging" className="underline-offset-2 hover:underline">
-                  Home rate and location
+                  Home
                 </Link>{" "}
-                set the guess for charges at home. Open a charge to enter what you actually paid.
+                and{" "}
+                <Link href="/settings#work-charging" className="underline-offset-2 hover:underline">
+                  work
+                </Link>{" "}
+                locations tag those charges and set the guess. Open a charge to enter what you actually paid.
               </p>
             </CardContent>
           )}

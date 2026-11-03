@@ -424,6 +424,12 @@ export interface AppSettings {
   homeLat: number | null;
   homeLng: number | null;
   homeRadiusM: number;
+  workLabel: string;
+  workLat: number | null;
+  workLng: number | null;
+  workRadiusM: number;
+  /** Dollars per kWh at work. Zero means charging there is free. */
+  workRateUsd: number;
   /** ISO time when a live-data window ends. Null leaves the car asleep. */
   liveDataUntil: string | null;
   /** Legacy single token. Folded into apiTokens on read and cleared on save. */
@@ -467,6 +473,11 @@ export interface PublicSettings {
   homeLat: number | null;
   homeLng: number | null;
   homeRadiusM: number;
+  workLabel: string;
+  workLat: number | null;
+  workLng: number | null;
+  workRadiusM: number;
+  workRateUsd: number;
   liveData: boolean;
   liveDataUntil: string | null;
   demoForced: boolean;
