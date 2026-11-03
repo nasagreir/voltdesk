@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Button } from "@/components/ui/button";
+import { DateRangeBar } from "@/components/dashboard/date-range-bar";
 import {
   Dialog,
   DialogBackdrop,
@@ -12,15 +12,19 @@ import {
   DialogPortal,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatDistance, milesTo } from "@/lib/format";
 import type { DailyDistancePoint } from "@/lib/daily-distance";
 import { presetRange } from "@/lib/time";
 import { parseTripRange } from "@/lib/trips";
 import type { DistanceUnit } from "@/lib/types";
 
-const WINDOWS = [7, 30, 90] as const;
+const PRESETS = [
+  { label: "7d", days: 7 },
+  { label: "30d", days: 30 },
+  { label: "90d", days: 90 },
+  { label: "1y", days: 365 },
+  { label: "All", days: 400 },
+] as const;
 
 const tooltipStyle = {
   background: "#121214",
@@ -104,38 +108,19 @@ export function OdometerChart({
               </div>
               <DialogClose />
             </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="font-heading text-lg">{loading ? "Loading…" : error ? "—" : formatDistance(totalMi, unit, 1)}</p>
-              <div className="flex gap-1">
-                {WINDOWS.map((windowDays) => {
-                  const range = presetRange(windowDays);
-                  const active = range.from === from && range.to === to;
-                  return (
-                    <Button
-                      key={windowDays}
-                      type="button"
-                      size="sm"
-                      variant={active ? "secondary" : "ghost"}
-                      onClick={() => {
-                        setFrom(range.from);
-                        setTo(range.to);
-                      }}
-                    >
-                      {windowDays}d
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <label className="grid min-w-0 gap-1.5 text-sm">
-                <Label htmlFor="odo-from">From</Label>
-                <Input id="odo-from" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-              </label>
-              <label className="grid min-w-0 gap-1.5 text-sm">
-                <Label htmlFor="odo-to">To</Label>
-                <Input id="odo-to" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-              </label>
+            <p className="mt-3 font-heading text-lg">{loading ? "Loading…" : error ? "—" : formatDistance(totalMi, unit, 1)}</p>
+            <div className="mt-3">
+              <DateRangeBar
+                from={from}
+                to={to}
+                onChange={(nextFrom, nextTo) => {
+                  setFrom(nextFrom);
+                  setTo(nextTo);
+                }}
+                presets={PRESETS}
+                fromId="odo-from"
+                toId="odo-to"
+              />
             </div>
             <div className="mt-3 h-56 short:h-40">
               {error ? (

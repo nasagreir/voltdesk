@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { BatteryDial } from "@/components/dashboard/battery-dial";
 import { CarPortrait } from "@/components/dashboard/car-portrait";
 import { GrokSuggestions } from "@/components/dashboard/grok-suggestions";
 import { LiveData } from "@/components/dashboard/live-data";
+import { ChargeHistory } from "@/components/dashboard/charge-history";
 import { OdometerChart } from "@/components/dashboard/odometer-chart";
+import { SpeedStats } from "@/components/dashboard/speed-stats";
 import { ServiceSummary } from "@/components/dashboard/service-summary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -313,7 +314,7 @@ export function Garage() {
         </Card>
         <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-4 min-[900px]:gap-3 short:gap-1.5">
           <OdometerChart vehicleId={vehicle.id} unit={payload.units.distance} value={vehicle.display.odometer} />
-          <Fact label="Speed" value={vehicle.display.speed} />
+          <SpeedStats vehicleId={vehicle.id} unit={payload.units.distance} value={vehicle.display.speed} />
           <Fact label="Motor" value={vehicle.display.power} />
           <Fact label="Elevation" value={vehicle.display.elevation} />
           <Fact label="Inside" value={vehicle.display.inside} />
@@ -341,54 +342,7 @@ export function Garage() {
           </CardContent>
           {vehicle.chargeCosts && (
             <CardContent className="space-y-2 border-t border-white/10">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="text-sm">Last {vehicle.chargeCosts.windowDays} days</p>
-                <p className="font-heading text-lg">{vehicle.chargeCosts.total}</p>
-              </div>
-              {vehicle.chargeCosts.lines.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No charges in this window yet.</p>
-              ) : (
-                <ul className="divide-y divide-white/10">
-                  {vehicle.chargeCosts.lines.map((line) => (
-                    <li key={line.id}>
-                      <Link
-                        href={`/charges/${encodeURIComponent(line.id)}`}
-                        className="flex items-start justify-between gap-3 py-2 text-sm hover:text-foreground"
-                      >
-                        <div className="min-w-0">
-                          <div>{line.label}</div>
-                          <div className="text-xs break-words text-muted-foreground">
-                            {line.when} · {line.place} · {line.energy}
-                          </div>
-                        </div>
-                        <div className="shrink-0">{line.cost}</div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {vehicle.chargeCosts.count > vehicle.chargeCosts.lines.length && (
-                <p className="text-xs text-muted-foreground">
-                  Showing {vehicle.chargeCosts.lines.length} of {vehicle.chargeCosts.count}. The total includes every priced charge in the window.
-                </p>
-              )}
-              {vehicle.chargeCosts.unpriced > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {vehicle.chargeCosts.unpriced === 1
-                    ? "1 Supercharger session stays out of the total until you enter the amount. Tesla does not send that price."
-                    : `${vehicle.chargeCosts.unpriced} Supercharger sessions stay out of the total until you enter the amounts. Tesla does not send those prices.`}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                <Link href="/settings#home-charging" className="underline-offset-2 hover:underline">
-                  Home
-                </Link>{" "}
-                and{" "}
-                <Link href="/settings#work-charging" className="underline-offset-2 hover:underline">
-                  work
-                </Link>{" "}
-                locations tag those charges and set the guess. Open a charge to enter what you actually paid.
-              </p>
+              <ChargeHistory vehicleId={vehicle.id} initial={vehicle.chargeCosts} />
             </CardContent>
           )}
         </Card>

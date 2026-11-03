@@ -11,15 +11,24 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { DateRangeBar } from "@/components/dashboard/date-range-bar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatChargeCost } from "@/lib/charge-cost";
 import { formatDistance, formatFixed, money } from "@/lib/format";
-import { formatChicagoStamp } from "@/lib/time";
-import type { HistoryPayload, HistoryRange } from "@/lib/types";
+import { formatChicagoStamp, presetRange } from "@/lib/time";
+import { parseTripRange } from "@/lib/trips";
+import type { HistoryPayload } from "@/lib/types";
 
-const ranges: HistoryRange[] = ["24h", "7d", "14d"];
+const PRESETS = [
+  { label: "7d", days: 7 },
+  { label: "14d", days: 14 },
+  { label: "30d", days: 30 },
+  { label: "90d", days: 90 },
+  { label: "1y", days: 365 },
+  { label: "All", days: 400 },
+] as const;
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -35,29 +44,42 @@ export function HistoryBoard({
 }: {
   focus: "history" | "drives" | "charges";
 }) {
-  const [range, setRange] = useState<HistoryRange>(focus === "history" ? "24h" : "14d");
+  const initial = presetRange(focus === "history" ? 1 : 14);
+  const [rollingDay, setRollingDay] = useState(focus === "history");
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
   const [payload, setPayload] = useState<HistoryPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const parsed = rollingDay ? null : parseTripRange(from, to);
     let cancelled = false;
-    void (async () => {
-      try {
-        const response = await fetch(`/api/history?range=${range}`, { cache: "no-store" });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error ?? "History failed");
-        if (!cancelled) {
-          setPayload(body as HistoryPayload);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "History failed");
+    const timer = window.setTimeout(() => {
+      if (parsed && "error" in parsed) {
+        setPayload(null);
+        setError(parsed.error);
+        return;
       }
-    })();
+      void (async () => {
+        try {
+          const query = rollingDay ? "range=24h" : `from=${from}&to=${to}`;
+          const response = await fetch(`/api/history?${query}`, { cache: "no-store" });
+          const body = await response.json();
+          if (!response.ok) throw new Error(body.error ?? "History failed");
+          if (!cancelled) {
+            setPayload(body as HistoryPayload);
+            setError(null);
+          }
+        } catch (err) {
+          if (!cancelled) setError(err instanceof Error ? err.message : "History failed");
+        }
+      })();
+    }, 0);
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [range]);
+  }, [rollingDay, from, to]);
 
   const unit = payload?.units.distance ?? "mi";
   const title = focus === "drives" ? "Drives" : focus === "charges" ? "Charges" : "History";
@@ -71,19 +93,26 @@ export function HistoryBoard({
             {payload?.vehicleName ?? "Vehicle"} · times in Chicago
           </p>
         </div>
-        <div className="flex gap-1">
-          {ranges.map((item) => (
-            <Button
-              key={item}
-              size="sm"
-              variant={item === range ? "default" : "outline"}
-              onClick={() => setRange(item)}
-            >
-              {item}
-            </Button>
-          ))}
-        </div>
       </div>
+      <DateRangeBar
+        from={from}
+        to={to}
+        onChange={(nextFrom, nextTo) => {
+          setRollingDay(false);
+          setFrom(nextFrom);
+          setTo(nextTo);
+        }}
+        presets={PRESETS}
+        fromId={`${focus}-from`}
+        toId={`${focus}-to`}
+        tone="page"
+        activeDays={rollingDay ? -1 : null}
+        prefix={
+          <Button type="button" size="sm" variant={rollingDay ? "default" : "outline"} onClick={() => setRollingDay(true)}>
+            24h
+          </Button>
+        }
+      />
 
       {error && (
         <Alert variant="destructive">

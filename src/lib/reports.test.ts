@@ -56,4 +56,40 @@ describe("teslamate-style reports", () => {
     assert.ok(reports.visited.length > 10);
     assert.ok(reports.locations.some((place) => place.name === "Work"));
   });
+
+  it("keeps a custom range inside the chosen dates", () => {
+    const now = chicagoDate(2026, 11, 2, 16, 29);
+    const demo = buildDemo(now);
+    const wide = buildReports({
+      samples: demo.samples,
+      now,
+      days: 30,
+      vehicleId: demo.vehicle.id,
+      rateUsdPerKwh: 0.16,
+      places: DEMO_FENCES,
+      units: { distance: "mi", temp: "F" },
+      mode: "demo",
+      source: "demo",
+      message: "demo",
+    });
+    const narrow = buildReports({
+      samples: demo.samples,
+      now,
+      days: 30,
+      from: chicagoDate(2026, 11, 2, 0, 0),
+      to: chicagoDate(2026, 11, 2, 23, 59),
+      vehicleId: demo.vehicle.id,
+      rateUsdPerKwh: 0.16,
+      places: DEMO_FENCES,
+      units: { distance: "mi", temp: "F" },
+      mode: "demo",
+      source: "demo",
+      message: "demo",
+    });
+    assert.ok(narrow.statistics.driveCount < wide.statistics.driveCount);
+    assert.ok(narrow.statistics.driveCount > 0);
+    assert.ok((narrow.driveStats.maxSpeedMph ?? 0) > 0);
+    assert.ok((narrow.statistics.avgSpeedMph ?? 0) > 0);
+    assert.equal(narrow.days, 1);
+  });
 });

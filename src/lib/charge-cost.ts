@@ -15,11 +15,20 @@ export function formatChargeCost(charge: Pick<ChargeSession, "costUsd" | "free" 
   return `est. ${money(charge.costUsd)}`;
 }
 
-export function summarizeCharges(charges: readonly ChargeSession[], now = new Date()): ChargeCostSummary {
+export function summarizeCharges(
+  charges: readonly ChargeSession[],
+  now = new Date(),
+  bounds?: { from: Date; to: Date },
+): ChargeCostSummary {
+  const fromMs = bounds?.from.getTime() ?? now.getTime() - WINDOW_MS;
+  const toMs = bounds?.to.getTime() ?? now.getTime();
   const recent = charges
     .filter((charge) => {
       const started = Date.parse(charge.startedAt);
-      return Number.isFinite(started) && now.getTime() - started <= WINDOW_MS && started <= now.getTime();
+      const ended = Date.parse(charge.endedAt);
+      if (!Number.isFinite(started) || started > toMs) return false;
+      if (bounds) return Number.isFinite(ended) && ended >= fromMs;
+      return now.getTime() - started <= WINDOW_MS;
     })
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   const priced = recent.filter((charge) => charge.costUsd != null);
@@ -40,6 +49,6 @@ export function summarizeCharges(charges: readonly ChargeSession[], now = new Da
     totalUsd: priced.length > 0 ? totalUsd : 0,
     unpriced: recent.filter((charge) => charge.costUsd == null).length,
     count: recent.length,
-    windowDays: 30,
+    windowDays: bounds ? Math.max(1, Math.round((toMs - fromMs) / 86_400_000)) : 30,
   };
 }

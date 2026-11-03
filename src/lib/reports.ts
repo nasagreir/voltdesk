@@ -1,5 +1,5 @@
 import { applyChargePrices, type ChargePriceMap } from "./charge-prices";
-import { formatChicagoStamp, chicagoParts } from "./time";
+import { chicagoParts, dayIndex, formatChicagoStamp } from "./time";
 import {
   deriveCharges,
   deriveDrives,
@@ -70,22 +70,39 @@ export function buildReports(input: {
   mode: ReportsPayload["mode"];
   source: ReportsPayload["source"];
   message: string;
+  from?: Date;
+  to?: Date;
 }): ReportsPayload {
-  const windowDays = input.days > 0 ? input.days : 400;
-  const cutoff = input.now.getTime() - windowDays * 24 * 60 * 60 * 1000;
+  const endMs = input.to?.getTime() ?? input.now.getTime();
+  const rollingDays = input.days > 0 ? input.days : 400;
+  const startMs = input.from?.getTime() ?? endMs - rollingDays * 24 * 60 * 60 * 1000;
+  const startParts = chicagoParts(new Date(startMs));
+  const endParts = chicagoParts(new Date(endMs));
+  const windowDays =
+    input.from && input.to
+      ? Math.max(1, dayIndex(endParts.y, endParts.m, endParts.d) - dayIndex(startParts.y, startParts.m, startParts.d) + 1)
+      : rollingDays;
+  const overlaps = (startedAt: string, endedAt: string) => {
+    const started = new Date(startedAt).getTime();
+    const ended = new Date(endedAt).getTime();
+    return ended >= startMs && started <= endMs;
+  };
   const vehicleSamples = input.samples
     .filter((sample) => {
       if (input.vehicleId && sample.vehicleId !== input.vehicleId) return false;
       return new Date(sample.at).getTime() <= input.now.getTime();
     })
     .sort((a, b) => a.at.localeCompare(b.at));
-  const inWindow = vehicleSamples.filter((sample) => new Date(sample.at).getTime() >= cutoff);
-  const drives = deriveDrives(vehicleSamples, input.places, input.addresses).filter(
-    (drive) => new Date(drive.endedAt).getTime() >= cutoff,
+  const inWindow = vehicleSamples.filter((sample) => {
+    const at = new Date(sample.at).getTime();
+    return at >= startMs && at <= endMs;
+  });
+  const drives = deriveDrives(vehicleSamples, input.places, input.addresses).filter((drive) =>
+    overlaps(drive.startedAt, drive.endedAt),
   );
   const charges = applyChargePrices(
-    deriveCharges(vehicleSamples, input.rateUsdPerKwh, input.places, input.addresses).filter(
-      (charge) => new Date(charge.endedAt).getTime() >= cutoff,
+    deriveCharges(vehicleSamples, input.rateUsdPerKwh, input.places, input.addresses).filter((charge) =>
+      overlaps(charge.startedAt, charge.endedAt),
     ),
     input.prices ?? {},
   );
@@ -274,10 +291,12 @@ export function buildReports(input: {
   for (const sample of vehicleSamples) {
     const version = sample.softwareVersion?.trim();
     if (!version || version === seenVersion) continue;
-    if (new Date(sample.at).getTime() < cutoff) {
+    const at = new Date(sample.at).getTime();
+    if (at < startMs) {
       seenVersion = version;
       continue;
     }
+    if (at > endMs) continue;
     updates.push({ at: sample.at, version, odometerMi: sample.odometerMi });
     seenVersion = version;
   }
@@ -353,8 +372,8 @@ export function buildReports(input: {
     source: input.source,
     message: input.message,
     fetchedAt: input.now.toISOString(),
-    from: new Date(cutoff).toISOString(),
-    to: input.now.toISOString(),
+    from: new Date(startMs).toISOString(),
+    to: new Date(endMs).toISOString(),
     days: windowDays,
     units: input.units,
     statistics: {

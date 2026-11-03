@@ -12,6 +12,7 @@ import { readAppearance, vehicleDisplayName } from "@/lib/appearance";
 import { summarizeCharges } from "@/lib/charge-cost";
 import { applyChargePrices, readChargePrices } from "@/lib/charge-prices";
 import { dailyDistance } from "@/lib/daily-distance";
+import { speedOverDrives } from "@/lib/speed";
 import { estimateTripRange, presentTripRange } from "@/lib/trip-range";
 import { demoForced, getSettings } from "@/lib/settings";
 import { fetchTeslaVehicles, TeslaRequestError, wakeTeslaVehicle } from "@/lib/tesla-fleet";
@@ -304,7 +305,11 @@ async function contextFor(vehicleId?: string | null) {
   return { settings, dashboard, now, selected, fences, samples: scoped };
 }
 
-export async function getHistory(range: HistoryRange, vehicleId?: string | null): Promise<HistoryPayload> {
+export async function getHistory(
+  range: HistoryRange,
+  vehicleId?: string | null,
+  bounds?: { from: Date; to: Date },
+): Promise<HistoryPayload> {
   const { settings, dashboard, now, selected, fences, samples } = await contextFor(vehicleId);
   const home = fences.length > 0 ? fences : (homeOf(settings) ?? (dashboard.mode === "demo" ? DEMO_HOME : null));
   const prices = await readChargePrices().catch(() => ({}));
@@ -323,6 +328,8 @@ export async function getHistory(range: HistoryRange, vehicleId?: string | null)
     source: dashboard.source,
     units: { distance: settings.distanceUnit, temp: settings.tempUnit },
     message: dashboard.message,
+    from: bounds?.from,
+    to: bounds?.to,
   });
   if (history.vehicleId) history.vehicleName = vehicleDisplayName(history.vehicleId, history.vehicleName ?? "", names) || history.vehicleName;
   return history;
@@ -362,7 +369,11 @@ export async function getDailyDistance(fromDay: string, toDay: string, vehicleId
   };
 }
 
-export async function getReports(days: number, vehicleId?: string | null): Promise<ReportsPayload> {
+export async function getReports(
+  days: number,
+  vehicleId?: string | null,
+  bounds?: { from: Date; to: Date },
+): Promise<ReportsPayload> {
   const { settings, dashboard, now, selected, fences, samples } = await contextFor(vehicleId);
   let addresses: Record<string, string> = {};
   try {
@@ -387,11 +398,47 @@ export async function getReports(days: number, vehicleId?: string | null): Promi
     mode: dashboard.mode,
     source: dashboard.source,
     message: dashboard.message,
+    from: bounds?.from,
+    to: bounds?.to,
   });
   if (reports.vehicleId) {
     reports.vehicleName = vehicleDisplayName(reports.vehicleId, reports.vehicleName ?? "", names) || reports.vehicleName;
   }
   return reports;
+}
+
+export async function getSpeedStats(from: Date, to: Date, fromDay: string, toDay: string, vehicleId?: string | null) {
+  const { settings, selected, fences, samples } = await contextFor(vehicleId);
+  let addresses: Record<string, string> = {};
+  try {
+    addresses = await readAddresses();
+  } catch {
+    addresses = {};
+  }
+  const drives = deriveDrives(samples, fences, addresses).filter((drive) => {
+    if (selected && drive.vehicleId !== selected) return false;
+    const started = new Date(drive.startedAt).getTime();
+    const ended = new Date(drive.endedAt).getTime();
+    return ended >= from.getTime() && started <= to.getTime();
+  });
+  return {
+    from: fromDay,
+    to: toDay,
+    unit: settings.distanceUnit,
+    ...speedOverDrives(drives),
+  };
+}
+
+export async function getChargeSummary(from: Date, to: Date, vehicleId?: string | null) {
+  const { settings, now, selected, fences, samples } = await contextFor(vehicleId);
+  const prices = await readChargePrices().catch(() => ({}));
+  const charges = applyChargePrices(
+    deriveCharges(samples, settings.electricityRateUsd, fences).filter(
+      (charge) => !selected || charge.vehicleId === selected,
+    ),
+    prices,
+  );
+  return summarizeCharges(charges, now, { from, to });
 }
 
 function samplesBetween(samples: VehicleSample[], start: string, end: string): VehicleSample[] {

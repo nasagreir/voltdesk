@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { DateRangeBar } from "@/components/dashboard/date-range-bar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +20,8 @@ import { RouteMap } from "@/components/dashboard/route-map";
 import { formatChargeCost } from "@/lib/charge-cost";
 import { formatDistance, formatFixed, money } from "@/lib/format";
 import { chargeBillingLabel } from "@/lib/sessions";
-import { formatChicagoStamp } from "@/lib/time";
+import { formatChicagoStamp, presetRange } from "@/lib/time";
+import { parseTripRange } from "@/lib/trips";
 import type { ReportsPayload, VehicleActivity } from "@/lib/types";
 
 const sections = [
@@ -42,12 +44,12 @@ const sections = [
 
 type Section = (typeof sections)[number][0];
 
-const dayChoices = [
-  [7, "7d"],
-  [30, "30d"],
-  [90, "90d"],
-  [365, "1y"],
-  [0, "All"],
+const PRESETS = [
+  { label: "7d", days: 7 },
+  { label: "30d", days: 30 },
+  { label: "90d", days: 90 },
+  { label: "1y", days: 365 },
+  { label: "All", days: 400 },
 ] as const;
 
 const stateLabel: Record<VehicleActivity, string> = {
@@ -99,8 +101,10 @@ const tooltipStyle = {
 };
 
 export function ReportsBoard({ only }: { only?: Section }) {
+  const initial = presetRange(30);
   const [section, setSection] = useState<Section>(only ?? "statistics");
-  const [days, setDays] = useState(30);
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
   const [payload, setPayload] = useState<ReportsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fromText, setFromText] = useState("");
@@ -108,24 +112,33 @@ export function ReportsBoard({ only }: { only?: Section }) {
   const active = only ?? section;
 
   useEffect(() => {
+    const parsed = parseTripRange(from, to);
     let cancelled = false;
-    void (async () => {
-      try {
-        const response = await fetch(`/api/reports?days=${days}`, { cache: "no-store" });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error ?? "Reports failed");
-        if (!cancelled) {
-          setPayload(body as ReportsPayload);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Reports failed");
+    const timer = window.setTimeout(() => {
+      if ("error" in parsed) {
+        setPayload(null);
+        setError(parsed.error);
+        return;
       }
-    })();
+      void (async () => {
+        try {
+          const response = await fetch(`/api/reports?from=${from}&to=${to}`, { cache: "no-store" });
+          const body = await response.json();
+          if (!response.ok) throw new Error(body.error ?? "Reports failed");
+          if (!cancelled) {
+            setPayload(body as ReportsPayload);
+            setError(null);
+          }
+        } catch (err) {
+          if (!cancelled) setError(err instanceof Error ? err.message : "Reports failed");
+        }
+      })();
+    }, 0);
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [days]);
+  }, [from, to]);
 
   const unit = payload?.units.distance ?? "mi";
   const tempUnit = payload?.units.temp ?? "F";
@@ -150,14 +163,19 @@ export function ReportsBoard({ only }: { only?: Section }) {
             {payload?.vehicleName ?? "Vehicle"} · Chicago time. VoltDesk polls the car, about every 15 seconds while it is driving or charging, and on your normal interval while it is parked. This is not a Tesla streaming socket.
           </p>
         </div>
-        <div className="flex gap-1">
-          {dayChoices.map(([value, label]) => (
-            <Button key={label} size="sm" variant={value === days ? "default" : "outline"} onClick={() => setDays(value)}>
-              {label}
-            </Button>
-          ))}
-        </div>
       </div>
+      <DateRangeBar
+        from={from}
+        to={to}
+        onChange={(nextFrom, nextTo) => {
+          setFrom(nextFrom);
+          setTo(nextTo);
+        }}
+        presets={PRESETS}
+        fromId={only === "timeline" ? "timeline-from" : "report-from"}
+        toId={only === "timeline" ? "timeline-to" : "report-to"}
+        tone="page"
+      />
 
       {!only && (
         <div className="flex gap-1 overflow-x-auto pb-1">

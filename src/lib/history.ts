@@ -8,7 +8,7 @@ import type {
   VehicleSample,
 } from "./types";
 
-const RANGE_MS: Record<HistoryRange, number> = {
+const RANGE_MS: Record<Exclude<HistoryRange, "custom">, number> = {
   "24h": 24 * 60 * 60 * 1000,
   "7d": 7 * 24 * 60 * 60 * 1000,
   "14d": 14 * 24 * 60 * 60 * 1000,
@@ -26,22 +26,31 @@ export function buildHistory(input: {
   source: HistoryPayload["source"];
   units: HistoryPayload["units"];
   message: string;
+  from?: Date;
+  to?: Date;
 }): HistoryPayload {
-  const cutoff = input.now.getTime() - RANGE_MS[input.range];
+  const endMs = input.to?.getTime() ?? input.now.getTime();
+  const startMs = input.from?.getTime() ?? endMs - RANGE_MS[input.range === "custom" ? "7d" : input.range];
+  const span = Math.max(0, endMs - startMs);
+  const labelRange: "24h" | "7d" | "long" = span <= 36 * 60 * 60 * 1000 ? "24h" : span <= 16 * 24 * 60 * 60 * 1000 ? "7d" : "long";
+  const overlaps = (startedAt: string, endedAt: string) => {
+    const started = new Date(startedAt).getTime();
+    const ended = new Date(endedAt).getTime();
+    return ended >= startMs && started <= endMs;
+  };
   const vehicleSamples = input.samples.filter((sample) => {
     if (input.vehicleId && sample.vehicleId !== input.vehicleId) return false;
     return new Date(sample.at).getTime() <= input.now.getTime();
   });
-  const inWindow = vehicleSamples.filter(
-    (sample) => new Date(sample.at).getTime() >= cutoff,
-  );
+  const inWindow = vehicleSamples.filter((sample) => {
+    const at = new Date(sample.at).getTime();
+    return at >= startMs && at <= endMs;
+  });
   const home = input.home ?? null;
-  const drives = deriveDrives(vehicleSamples, home).filter(
-    (drive) => new Date(drive.endedAt).getTime() >= cutoff,
-  );
+  const drives = deriveDrives(vehicleSamples, home).filter((drive) => overlaps(drive.startedAt, drive.endedAt));
   const charges = applyChargePrices(
-    deriveCharges(vehicleSamples, input.rateUsdPerKwh, home).filter(
-      (charge) => new Date(charge.endedAt).getTime() >= cutoff,
+    deriveCharges(vehicleSamples, input.rateUsdPerKwh, home).filter((charge) =>
+      overlaps(charge.startedAt, charge.endedAt),
     ),
     input.prices ?? {},
   );
@@ -52,7 +61,7 @@ export function buildHistory(input: {
     const sample = inWindow[i];
     series.push({
       at: sample.at,
-      label: formatChicago(new Date(sample.at), input.range),
+      label: formatChicago(new Date(sample.at), labelRange),
       batteryPercent: sample.batteryPercent,
       ratedRangeMi: sample.ratedRangeMi,
       chargerPowerKw: sample.chargerPowerKw,
@@ -62,7 +71,7 @@ export function buildHistory(input: {
   if (last && series[series.length - 1]?.at !== last.at) {
     series.push({
       at: last.at,
-      label: formatChicago(new Date(last.at), input.range),
+      label: formatChicago(new Date(last.at), labelRange),
       batteryPercent: last.batteryPercent,
       ratedRangeMi: last.ratedRangeMi,
       chargerPowerKw: last.chargerPowerKw,

@@ -21,7 +21,7 @@ export type ShiftState = "D" | "R" | "P" | "N" | null;
 
 export type ChargeBilling = "home" | "work" | "supercharger" | "other";
 
-export type HistoryRange = "24h" | "7d" | "14d";
+export type HistoryRange = "24h" | "7d" | "14d" | "custom";
 
 export interface TirePressures {
   fl: number | null;

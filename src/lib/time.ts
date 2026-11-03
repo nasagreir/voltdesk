@@ -72,13 +72,13 @@ export function dayIndex(y: number, m: number, d: number): number {
   );
 }
 
-export function formatChicago(date: Date, range: "24h" | "7d" | "14d"): string {
+export function formatChicago(date: Date, range: "24h" | "7d" | "14d" | "long"): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
     month: range === "24h" ? undefined : "short",
     day: range === "24h" ? undefined : "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+    hour: range === "long" ? undefined : "numeric",
+    minute: range === "long" ? undefined : "2-digit",
   }).format(date);
 }
 
