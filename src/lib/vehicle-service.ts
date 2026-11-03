@@ -11,6 +11,7 @@ import { isLiveData, pollSeconds } from "@/lib/live-data";
 import { readAppearance, vehicleDisplayName } from "@/lib/appearance";
 import { summarizeCharges } from "@/lib/charge-cost";
 import { applyChargePrices, readChargePrices } from "@/lib/charge-prices";
+import { dailyDistance } from "@/lib/daily-distance";
 import { estimateTripRange, presentTripRange } from "@/lib/trip-range";
 import { demoForced, getSettings } from "@/lib/settings";
 import { fetchTeslaVehicles, TeslaRequestError, wakeTeslaVehicle } from "@/lib/tesla-fleet";
@@ -346,6 +347,15 @@ export async function getTrips(from: Date, to: Date, fromDay: string, toDay: str
     units: { distance: settings.distanceUnit, temp: settings.tempUnit },
     summary: tripSummary(trips),
     trips,
+  };
+}
+
+export async function getDailyDistance(days: number, vehicleId?: string | null) {
+  const { settings, now, selected, samples } = await contextFor(vehicleId);
+  return {
+    days,
+    unit: settings.distanceUnit,
+    points: dailyDistance(samples, now, days, selected),
   };
 }
 

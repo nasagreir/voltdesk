@@ -4,7 +4,7 @@ Self-hosted Tesla dashboard in the same shape as [OrbitDesk](https://github.com/
 
 VoltDesk covers the TeslaMate vehicle screens in its own UI:
 
-- Garage: battery with a charging mark and a finish time, rated and ideal range plus a range from recent trips, charge cost by place (home, free work, Supercharger) with a guess you can replace by the amount you paid, climate, locks, sentry, tires, location, a studio photo of the model with a paint color for that car, a name you can set for that car, an optional 30-minute live view, a short suggestion list, and service status
+- Garage: battery with a charging mark and a finish time, rated and ideal range plus a range from recent trips, charge cost by place (home, free work, Supercharger) with a guess you can replace by the amount you paid, climate, locks, sentry, tires, location, a studio photo of the model with a paint color for that car, a name you can set for that car, a daily driving chart on the odometer, an optional 30-minute live view, a short suggestion list, and service status
 - Trips: each drive on a street map, the stats for that drive, and any date range within the stored history
 - Service: Tesla’s published maintenance intervals, with a place to mark each item done
 - Charges and charge detail, split into AC and DC, with voltage, current, phases, and cost. Each charge keeps a best guess from the place rate until you enter the actual amount. Home and work locations on Connections tag those charges and drive the guess.

@@ -6,6 +6,7 @@ import { BatteryDial } from "@/components/dashboard/battery-dial";
 import { CarPortrait } from "@/components/dashboard/car-portrait";
 import { GrokSuggestions } from "@/components/dashboard/grok-suggestions";
 import { LiveData } from "@/components/dashboard/live-data";
+import { OdometerChart } from "@/components/dashboard/odometer-chart";
 import { ServiceSummary } from "@/components/dashboard/service-summary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -311,7 +312,7 @@ export function Garage() {
           </CardContent>
         </Card>
         <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-4 min-[900px]:gap-3 short:gap-1.5">
-          <Fact label="Odometer" value={vehicle.display.odometer} />
+          <OdometerChart vehicleId={vehicle.id} unit={payload.units.distance} value={vehicle.display.odometer} />
           <Fact label="Speed" value={vehicle.display.speed} />
           <Fact label="Motor" value={vehicle.display.power} />
           <Fact label="Elevation" value={vehicle.display.elevation} />
