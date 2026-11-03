@@ -12,8 +12,12 @@ import {
   DialogPortal,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatDistance, milesTo } from "@/lib/format";
 import type { DailyDistancePoint } from "@/lib/daily-distance";
+import { presetRange } from "@/lib/time";
+import { parseTripRange } from "@/lib/trips";
 import type { DistanceUnit } from "@/lib/types";
 
 const WINDOWS = [7, 30, 90] as const;
@@ -33,20 +37,29 @@ export function OdometerChart({
   unit: DistanceUnit;
   value: string;
 }) {
+  const initial = presetRange(30);
   const [open, setOpen] = useState(false);
-  const [days, setDays] = useState<(typeof WINDOWS)[number]>(30);
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
   const [points, setPoints] = useState<DailyDistancePoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    const parsed = parseTripRange(from, to);
     const timer = window.setTimeout(() => {
+      if ("error" in parsed) {
+        setPoints([]);
+        setError(parsed.error);
+        setLoading(false);
+        return;
+      }
       void (async () => {
         setLoading(true);
         setError(null);
         try {
-          const params = new URLSearchParams({ days: String(days), vehicle: vehicleId });
+          const params = new URLSearchParams({ from, to, vehicle: vehicleId });
           const response = await fetch(`/api/mileage?${params}`, { cache: "no-store" });
           const body = (await response.json()) as { error?: string; points?: DailyDistancePoint[] };
           if (!response.ok) throw new Error(body.error ?? "Could not load daily driving");
@@ -60,7 +73,7 @@ export function OdometerChart({
       })();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [open, days, vehicleId]);
+  }, [open, from, to, vehicleId]);
 
   const totalMi = points.reduce((sum, point) => sum + point.distanceMi, 0);
   const chart = points.map((point) => ({
@@ -85,25 +98,44 @@ export function OdometerChart({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <DialogTitle>Driving</DialogTitle>
-                <DialogDescription>Each bar is how far the odometer moved that day.</DialogDescription>
+                <DialogDescription>
+                  Each bar is how far the odometer moved that day. History is kept for about 400 days.
+                </DialogDescription>
               </div>
               <DialogClose />
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="font-heading text-lg">{loading ? "Loading…" : formatDistance(totalMi, unit, 1)}</p>
+              <p className="font-heading text-lg">{loading ? "Loading…" : error ? "—" : formatDistance(totalMi, unit, 1)}</p>
               <div className="flex gap-1">
-                {WINDOWS.map((windowDays) => (
-                  <Button
-                    key={windowDays}
-                    type="button"
-                    size="sm"
-                    variant={days === windowDays ? "secondary" : "ghost"}
-                    onClick={() => setDays(windowDays)}
-                  >
-                    {windowDays}d
-                  </Button>
-                ))}
+                {WINDOWS.map((windowDays) => {
+                  const range = presetRange(windowDays);
+                  const active = range.from === from && range.to === to;
+                  return (
+                    <Button
+                      key={windowDays}
+                      type="button"
+                      size="sm"
+                      variant={active ? "secondary" : "ghost"}
+                      onClick={() => {
+                        setFrom(range.from);
+                        setTo(range.to);
+                      }}
+                    >
+                      {windowDays}d
+                    </Button>
+                  );
+                })}
               </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <label className="grid min-w-0 gap-1.5 text-sm">
+                <Label htmlFor="odo-from">From</Label>
+                <Input id="odo-from" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+              </label>
+              <label className="grid min-w-0 gap-1.5 text-sm">
+                <Label htmlFor="odo-to">To</Label>
+                <Input id="odo-to" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+              </label>
             </div>
             <div className="mt-3 h-56 short:h-40">
               {error ? (

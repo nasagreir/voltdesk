@@ -350,12 +350,15 @@ export async function getTrips(from: Date, to: Date, fromDay: string, toDay: str
   };
 }
 
-export async function getDailyDistance(days: number, vehicleId?: string | null) {
-  const { settings, now, selected, samples } = await contextFor(vehicleId);
+export async function getDailyDistance(fromDay: string, toDay: string, vehicleId?: string | null) {
+  const { settings, selected, samples } = await contextFor(vehicleId);
+  const result = dailyDistance(samples, fromDay, toDay, selected);
+  if ("error" in result) return result;
   return {
-    days,
+    from: fromDay,
+    to: toDay,
     unit: settings.distanceUnit,
-    points: dailyDistance(samples, now, days, selected),
+    points: result.points,
   };
 }
 
