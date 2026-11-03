@@ -117,7 +117,10 @@ export function PlacesBoard() {
                 </Button>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                {fence.lat.toFixed(5)}, {fence.lng.toFixed(5)} · {Math.round(fence.radiusM)} m · ${fence.costPerKwh.toFixed(2)}/kWh
+                {fence.lat.toFixed(5)}, {fence.lng.toFixed(5)} · {Math.round(fence.radiusM)} m ·{" "}
+                {fence.costPerKwh === 0 && fence.sessionFee === 0
+                  ? "Free"
+                  : `$${fence.costPerKwh.toFixed(2)}/kWh`}
                 {fence.sessionFee > 0 ? ` · $${fence.sessionFee.toFixed(2)} session` : ""}
               </CardContent>
             </Card>
@@ -149,6 +152,7 @@ export function PlacesBoard() {
             <div className="space-y-1.5">
               <Label htmlFor="place-rate">$ / kWh</Label>
               <Input id="place-rate" inputMode="decimal" value={form.costPerKwh} onChange={(event) => setForm({ ...form, costPerKwh: event.target.value })} required />
+              <p className="text-xs text-muted-foreground">Use 0 for a free place, such as work.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="place-fee">Session fee ($)</Label>

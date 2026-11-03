@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RouteMap } from "@/components/dashboard/route-map";
 import { formatDistance, formatFixed, money } from "@/lib/format";
+import { chargeBillingLabel } from "@/lib/sessions";
 import { formatChicagoStamp } from "@/lib/time";
 import type { ReportsPayload, VehicleActivity } from "@/lib/types";
 
@@ -651,6 +652,7 @@ function ChargeTable({ charges }: { charges: ReportsPayload["charges"] }) {
             <tr>
               <th className="py-2 font-medium">When</th>
               <th className="py-2 font-medium">Place</th>
+              <th className="py-2 font-medium">Where</th>
               <th className="py-2 font-medium">Kind</th>
               <th className="py-2 font-medium">Energy</th>
               <th className="py-2 font-medium">Cost</th>
@@ -665,6 +667,7 @@ function ChargeTable({ charges }: { charges: ReportsPayload["charges"] }) {
                   </Link>
                 </td>
                 <td className="py-2">{charge.placeLabel}</td>
+                <td className="py-2">{chargeBillingLabel(charge.billing, charge.free)}</td>
                 <td className="py-2">{charge.kind}</td>
                 <td className="py-2">{formatFixed(charge.energyKwh, "kWh", 1)}</td>
                 <td className="py-2">{money(charge.costUsd)}</td>

@@ -1,4 +1,4 @@
-import { formatChicagoStamp } from "./time";
+import { chicagoParts, formatChicagoClock, formatChicagoStamp } from "./time";
 import type {
   DistanceUnit,
   TempUnit,
@@ -34,6 +34,23 @@ export function formatFixed(value: number | null, suffix: string, digits = 1): s
   })} ${suffix}`;
 }
 
+export function formatDoneBy(updatedIso: string, minutes: number | null, charging: boolean): string {
+  if (!charging || minutes == null || !Number.isFinite(minutes) || minutes < 0) return "—";
+  if (minutes <= 1) return "Now";
+  const updated = new Date(updatedIso);
+  const done = new Date(updated.getTime() + minutes * 60_000);
+  if (!Number.isFinite(done.getTime())) return "—";
+  const clock = formatChicagoClock(done);
+  const start = chicagoParts(updated);
+  const end = chicagoParts(done);
+  if (start.key === end.key) return clock;
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    weekday: "short",
+  }).format(done);
+  return `${weekday} ${clock}`;
+}
+
 export function presentVehicle(
   vehicle: Vehicle,
   units: { distance: DistanceUnit; temp: TempUnit },
@@ -57,6 +74,7 @@ export function presentVehicle(
         : vehicle.minutesToFull >= 60
           ? `${Math.floor(vehicle.minutesToFull / 60)}h ${Math.round(vehicle.minutesToFull % 60)}m`
           : `${Math.round(vehicle.minutesToFull)}m`,
+    doneBy: formatDoneBy(vehicle.lastUpdated, vehicle.minutesToFull, vehicle.state === "charging"),
     energyAdded: formatFixed(vehicle.energyAddedKwh, "kWh", 1),
     inside: formatTemp(vehicle.insideTempC, units.temp),
     outside: formatTemp(vehicle.outsideTempC, units.temp),

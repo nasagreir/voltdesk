@@ -19,6 +19,8 @@ export type VehicleActivity =
 
 export type ShiftState = "D" | "R" | "P" | "N" | null;
 
+export type ChargeBilling = "home" | "work" | "supercharger" | "other";
+
 export type HistoryRange = "24h" | "7d" | "14d";
 
 export interface TirePressures {
@@ -91,6 +93,7 @@ export interface VehicleDisplay {
   chargerPower: string;
   chargeRate: string;
   timeToFull: string;
+  doneBy: string;
   energyAdded: string;
   inside: string;
   outside: string;
@@ -120,6 +123,27 @@ export interface TripRange {
 export interface VehicleView extends Vehicle {
   display: VehicleDisplay;
   tripRange?: TripRange;
+  chargeCosts?: ChargeCostSummary;
+}
+
+export interface ChargeCostLine {
+  id: string;
+  when: string;
+  place: string;
+  label: string;
+  energy: string;
+  cost: string;
+  free: boolean;
+  billing: ChargeBilling;
+}
+
+export interface ChargeCostSummary {
+  lines: ChargeCostLine[];
+  total: string;
+  totalUsd: number;
+  unpriced: number;
+  count: number;
+  windowDays: number;
 }
 
 export interface DashboardPayload {
@@ -205,6 +229,8 @@ export interface ChargeSession {
   durationMin: number;
   peakPowerKw: number;
   costUsd: number | null;
+  billing: ChargeBilling;
+  free: boolean;
   placeLabel: string;
   energyUsedKwh: number;
   rangeAddedMi: number;

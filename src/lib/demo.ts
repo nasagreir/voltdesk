@@ -34,7 +34,7 @@ export const DEMO_FENCES = [
     lat: WORK.lat,
     lng: WORK.lng,
     radiusM: 200,
-    costPerKwh: 0.22,
+    costPerKwh: 0,
     sessionFee: 0,
   },
 ];
@@ -217,10 +217,68 @@ export function buildDemoSamples(now: Date): VehicleSample[] {
         samples.push(sampleFrom(current, base, nowMs, version, upcoming, u));
       }
     }
+
+    if ((offset === -2 || offset === -6) && chicagoDate(day.y, day.m, day.d, 12, 48).getTime() <= nowMs) {
+      samples.push(
+        parkedCharge(chicagoDate(day.y, day.m, day.d, 12, 32), 74, 0.2, 6, WORK.lat, WORK.lng, base + 11.4, "Charging", false, version),
+        parkedCharge(chicagoDate(day.y, day.m, day.d, 12, 48), 78, 3.4, 6, WORK.lat, WORK.lng, base + 11.4, "Charging", false, version),
+      );
+    }
+    if (offset === -3 && chicagoDate(day.y, day.m, day.d, 19, 18).getTime() <= nowMs) {
+      const stall = { lat: 41.829, lng: -87.633 };
+      samples.push(
+        parkedCharge(chicagoDate(day.y, day.m, day.d, 19, 5), 28, 1, 140, stall.lat, stall.lng, base + 23, "Charging", true, version),
+        parkedCharge(chicagoDate(day.y, day.m, day.d, 19, 18), 64, 29, 90, stall.lat, stall.lng, base + 23, "Charging", true, version),
+      );
+    }
   }
 
   samples.sort((a, b) => a.at.localeCompare(b.at));
   return samples;
+}
+
+function parkedCharge(
+  at: Date,
+  battery: number,
+  energy: number,
+  power: number,
+  lat: number,
+  lng: number,
+  odometerMi: number,
+  chargingState: string,
+  fast: boolean,
+  version: string,
+): VehicleSample {
+  const rated = (battery / 100) * 280;
+  return {
+    at: at.toISOString(),
+    vehicleId: VEHICLE_ID,
+    name: "Roadrunner",
+    batteryPercent: battery,
+    ratedRangeMi: rated,
+    estRangeMi: rated * 0.93,
+    idealRangeMi: rated * 1.2,
+    usableBatteryPercent: battery,
+    odometerMi,
+    chargingState,
+    chargerPowerKw: power,
+    energyAddedKwh: energy,
+    shiftState: "P",
+    speedMph: 0,
+    lat,
+    lng,
+    insideTempC: 21,
+    outsideTempC: 8,
+    packKwh: PACK_KWH,
+    powerKw: 0,
+    elevationM: 180,
+    chargerVoltage: fast ? 400 : 240,
+    chargerCurrent: power > 0 ? power / (fast ? 0.4 : 0.24) : 0,
+    chargerPhases: fast ? null : 1,
+    fastCharger: fast,
+    softwareVersion: version,
+    activity: chargingState === "Charging" ? "charging" : "parked",
+  };
 }
 
 export function vehicleFromSample(

@@ -1,5 +1,6 @@
 import { haversineMeters } from "./geo";
 import type {
+  ChargeBilling,
   ChargeSession,
   DriveSession,
   Geofence,
@@ -55,6 +56,22 @@ export function sampleActivity(sample: VehicleSample): VehicleActivity {
     shiftState: sample.shiftState,
     speedMph: sample.speedMph,
   });
+}
+
+export function chargeBillingLabel(billing: ChargeBilling, free: boolean): string {
+  if (billing === "supercharger") return "Supercharger";
+  if (billing === "work") return free ? "Work · free" : "Work";
+  if (billing === "home") return "Home";
+  return free ? "Free" : "Other";
+}
+
+function billingOf(fence: Geofence | null, kind: "AC" | "DC"): ChargeBilling {
+  if (!fence) return kind === "DC" ? "supercharger" : "other";
+  const name = `${fence.id} ${fence.name}`.toLowerCase();
+  if (name.includes("supercharg")) return "supercharger";
+  if (name.includes("work") || name.includes("office")) return "work";
+  if (fence.id === "home" || name.includes("home")) return "home";
+  return kind === "DC" ? "supercharger" : "other";
 }
 
 export function asFences(hint: PlaceHint): Geofence[] {
@@ -230,15 +247,15 @@ export function deriveCharges(
   const sorted = [...samples].sort((a, b) => a.at.localeCompare(b.at));
   const charges: ChargeSession[] = [];
   let open: VehicleSample[] | null = null;
-  const priced = Array.isArray(places);
 
   const close = (group: VehicleSample[], inProgress: boolean) => {
     const start = group[0];
     const end = group[group.length - 1];
     const durationMin =
       (new Date(end.at).getTime() - new Date(start.at).getTime()) / 60_000;
-    let energy = end.energyAddedKwh - start.energyAddedKwh;
-    if (!Number.isFinite(energy) || energy < 0) energy = end.energyAddedKwh;
+    const peakAdded = group.reduce((max, sample) => Math.max(max, sample.energyAddedKwh), 0);
+    let energy = peakAdded - start.energyAddedKwh;
+    if (!Number.isFinite(energy) || energy < 0) energy = peakAdded;
     if (energy < 0.15) {
       const pack = end.packKwh || 75;
       energy = Math.max(0, ((end.batteryPercent - start.batteryPercent) / 100) * pack);
@@ -260,9 +277,18 @@ export function deriveCharges(
       start.lat != null && start.lng != null
         ? matchFence(start.lat, start.lng, asFences(places))
         : null;
+    const billing = billingOf(fence, kind);
     let cost: number | null = null;
-    if (priced && fence) cost = energy * fence.costPerKwh + fence.sessionFee;
-    else if (rateUsdPerKwh != null) cost = energy * rateUsdPerKwh;
+    let free = false;
+    if (fence) {
+      const fee = fence.sessionFee || 0;
+      cost = energy * fence.costPerKwh + fee;
+      free = fence.costPerKwh === 0 && fee === 0;
+    } else if (billing === "supercharger") {
+      cost = null;
+    } else if (rateUsdPerKwh != null) {
+      cost = energy * rateUsdPerKwh;
+    }
     const volts = finite(group.map((sample) => sample.chargerVoltage));
     const amps = finite(group.map((sample) => sample.chargerCurrent));
     const phases = finite(group.map((sample) => sample.chargerPhases));
@@ -280,6 +306,8 @@ export function deriveCharges(
       durationMin,
       peakPowerKw: peak,
       costUsd: cost,
+      billing,
+      free,
       placeLabel: placeLabel(start.lat, start.lng, places, addresses),
       energyUsedKwh: energyUsed,
       rangeAddedMi: rangeAdded > 0 ? rangeAdded : 0,

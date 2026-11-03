@@ -8,6 +8,7 @@ import { buildReports } from "@/lib/reports";
 import { deriveCharges, deriveDrives } from "@/lib/sessions";
 import { tripSummary, tripsOverlapping } from "@/lib/trips";
 import { isLiveData, pollSeconds } from "@/lib/live-data";
+import { summarizeCharges } from "@/lib/charge-cost";
 import { estimateTripRange, presentTripRange } from "@/lib/trip-range";
 import { demoForced, getSettings } from "@/lib/settings";
 import { fetchTeslaVehicles, TeslaRequestError, wakeTeslaVehicle } from "@/lib/tesla-fleet";
@@ -74,8 +75,19 @@ async function withTripRanges(
     samples = [];
   }
   const drives = samples.length > 0 ? deriveDrives(samples) : [];
+  let fences: Awaited<ReturnType<typeof resolveFences>>["fences"] = [];
+  try {
+    fences = (await resolveFences(settings, mode)).fences;
+  } catch {
+    fences = [];
+  }
+  const charges = samples.length > 0 ? deriveCharges(samples, settings.electricityRateUsd, fences) : [];
   return views.map((view) => ({
     ...view,
+    chargeCosts: summarizeCharges(
+      charges.filter((charge) => charge.vehicleId === view.id),
+      now,
+    ),
     tripRange: presentTripRange(
       estimateTripRange(
         {

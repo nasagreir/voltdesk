@@ -31,7 +31,9 @@ describe("teslamate-style reports", () => {
     assert.equal(reports.drives.some((drive) => drive.fromLabel === "Home" && drive.toLabel === "Work"), true);
 
     assert.ok(reports.chargingStats.ac.count >= 10);
-    assert.equal(reports.chargingStats.dc.count, 0);
+    assert.ok(reports.chargingStats.dc.count >= 1);
+    assert.ok(reports.charges.some((charge) => charge.billing === "work" && charge.free));
+    assert.ok(reports.charges.some((charge) => charge.billing === "supercharger" && charge.costUsd == null));
     assert.equal(reports.chargingStats.byPlace[0]?.place, "Home");
     assert.ok((reports.chargingStats.byPlace[0]?.costUsd ?? 0) > 1);
 

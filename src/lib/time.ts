@@ -130,6 +130,14 @@ export function presetRange(days: number, now = new Date()): { from: string; to:
   };
 }
 
+export function formatChicagoClock(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function formatChicagoStamp(date: Date): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",

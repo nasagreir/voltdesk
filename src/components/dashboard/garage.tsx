@@ -197,7 +197,11 @@ export function Garage() {
                   Charging
                   {vehicle.chargerPowerKw > 0 ? ` at ${vehicle.display.chargerPower}` : ""}
                   {vehicle.chargeRateMph > 0 ? ` · ${vehicle.display.chargeRate}` : ""}
-                  {vehicle.minutesToFull != null ? ` · ${vehicle.display.timeToFull} to the limit` : ""}
+                  {vehicle.display.doneBy !== "—"
+                    ? ` · done around ${vehicle.display.doneBy}`
+                    : vehicle.minutesToFull != null
+                      ? ` · ${vehicle.display.timeToFull} to the limit`
+                      : ""}
                 </p>
               )}
               {vehicle.tripRange?.rangeMi != null ? (
@@ -243,9 +247,47 @@ export function Garage() {
             <Fact label="Power" value={vehicle.display.chargerPower} />
             <Fact label="Rate" value={vehicle.display.chargeRate} />
             <Fact label="Time to limit" value={vehicle.display.timeToFull} />
+            <Fact label="Done by" value={vehicle.display.doneBy} />
             <Fact label="Added" value={vehicle.display.energyAdded} />
             <Fact label="Cable" value={vehicle.cable || "—"} />
           </CardContent>
+          {vehicle.chargeCosts && (
+            <CardContent className="space-y-2 border-t border-white/10">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm">Last {vehicle.chargeCosts.windowDays} days</p>
+                <p className="font-heading text-lg">{vehicle.chargeCosts.total}</p>
+              </div>
+              {vehicle.chargeCosts.lines.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No charges in this window yet.</p>
+              ) : (
+                <ul className="divide-y divide-white/10">
+                  {vehicle.chargeCosts.lines.map((line) => (
+                    <li key={line.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+                      <div className="min-w-0">
+                        <div>{line.label}</div>
+                        <div className="text-xs break-words text-muted-foreground">
+                          {line.when} · {line.place} · {line.energy}
+                        </div>
+                      </div>
+                      <div className="shrink-0">{line.cost}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {vehicle.chargeCosts.count > vehicle.chargeCosts.lines.length && (
+                <p className="text-xs text-muted-foreground">
+                  Showing {vehicle.chargeCosts.lines.length} of {vehicle.chargeCosts.count}. The total includes every priced charge in the window.
+                </p>
+              )}
+              {vehicle.chargeCosts.unpriced > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {vehicle.chargeCosts.unpriced === 1
+                    ? "1 Supercharger session stays out of the total. Tesla does not send that price."
+                    : `${vehicle.chargeCosts.unpriced} Supercharger sessions stay out of the total. Tesla does not send those prices.`}
+                </p>
+              )}
+            </CardContent>
+          )}
         </Card>
         <Card>
           <CardHeader>
