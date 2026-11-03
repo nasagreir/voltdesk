@@ -26,6 +26,8 @@ Not included, on purpose:
 
 With no Tesla or Home Assistant credentials it runs a demo Model Y so you can click through the UI. Secrets stay in `.env.local` or `data/settings.json` on the container. The browser only talks to VoltDesk.
 
+Proxmox and Docker are two installs of this same app. A change to behavior, settings, port 3470, stored data, or the operator commands is made in both. The packages can differ: the LXC uses systemd and `/opt/voltdesk`, and Docker uses Compose and the `voltdesk-data` volume.
+
 ## Install on Proxmox
 
 Repo: [github.com/nasagreir/voltdesk](https://github.com/nasagreir/voltdesk)
@@ -82,7 +84,7 @@ On Docker the same command is `docker compose exec voltdesk voltdesk-user`. Add 
 
 ## Docker
 
-The Proxmox installer is unchanged. This is the same app in a container, for a host that already runs Docker.
+This container runs the same VoltDesk as the Proxmox LXC. Keep the two installs in step.
 
 ```bash
 docker compose up -d --build

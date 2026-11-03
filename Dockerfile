@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+# Same app as the Proxmox LXC installer (proxmox-install.sh). Keep both installs in step.
 
 FROM node:22.23.4-alpine AS build
 WORKDIR /src

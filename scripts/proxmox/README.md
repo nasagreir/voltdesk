@@ -1,5 +1,7 @@
 # VoltDesk on Proxmox
 
+This is one install of the same app as Docker (`Dockerfile`, `compose.yaml`). A change to behavior, settings, the port, stored data, or `voltdesk-user` belongs in both.
+
 ## Paste this on the Proxmox host (root)
 
 One file: [`proxmox-install.sh`](../../proxmox-install.sh) at the repo root.

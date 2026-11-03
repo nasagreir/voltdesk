@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # VoltDesk — single pasteable Proxmox LXC installer
+# Same app as the Docker image (Dockerfile, compose.yaml). Keep both installs in step.
 # =============================================================================
 # Repo: https://github.com/nasagreir/voltdesk
 #
