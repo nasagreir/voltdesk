@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BatteryDial } from "@/components/dashboard/battery-dial";
 import { CarPortrait } from "@/components/dashboard/car-portrait";
 import { GrokSuggestions } from "@/components/dashboard/grok-suggestions";
+import { LiveData } from "@/components/dashboard/live-data";
 import { ServiceSummary } from "@/components/dashboard/service-summary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +66,11 @@ export function Garage() {
   useEffect(() => {
     if (!payload) return;
     const active = payload.vehicles.some((item) => item.state === "driving" || item.state === "charging");
-    const seconds = active ? Math.min(15, payload.pollIntervalSeconds) : Math.max(15, payload.pollIntervalSeconds);
+    const seconds = payload.liveData
+      ? 15
+      : active
+        ? Math.min(15, payload.pollIntervalSeconds)
+        : Math.max(15, payload.pollIntervalSeconds);
     const timer = window.setInterval(() => {
       void load();
     }, seconds * 1000);
@@ -74,6 +79,17 @@ export function Garage() {
 
   const vehicle =
     payload?.vehicles.find((item) => item.id === vehicleId) ?? payload?.vehicles[0] ?? null;
+
+  async function setLive(enabled: boolean) {
+    const response = await fetch("/api/live", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error ?? "Could not change live data");
+    await load();
+  }
 
   async function wake() {
     if (!vehicle) return;
@@ -139,6 +155,14 @@ export function Garage() {
           <Badge variant={vehicle.stale ? "outline" : "secondary"}>{STATE_LABEL[vehicle.state]}</Badge>
         </div>
       </div>
+
+      <LiveData
+        enabled={payload.liveData}
+        until={payload.liveDataUntil}
+        now={payload.fetchedAt}
+        demo={payload.mode === "demo"}
+        onChange={setLive}
+      />
 
       {vehicle.alerts.length > 0 && (
         <Alert>

@@ -117,6 +117,9 @@ export interface DashboardPayload {
   units: { distance: DistanceUnit; temp: TempUnit };
   vehicles: VehicleView[];
   pollIntervalSeconds: number;
+  /** True only during a timed live-data window. Off by default. */
+  liveData: boolean;
+  liveDataUntil: string | null;
 }
 
 export interface VehicleSample {
@@ -376,6 +379,8 @@ export interface AppSettings {
   homeLat: number | null;
   homeLng: number | null;
   homeRadiusM: number;
+  /** ISO time when a live-data window ends. Null leaves the car asleep. */
+  liveDataUntil: string | null;
   /** Legacy single token. Folded into apiTokens on read and cleared on save. */
   apiToken: string;
   apiTokens: BotApiToken[];
@@ -417,6 +422,8 @@ export interface PublicSettings {
   homeLat: number | null;
   homeLng: number | null;
   homeRadiusM: number;
+  liveData: boolean;
+  liveDataUntil: string | null;
   demoForced: boolean;
   /** True when a saved token or VOLTDESK_API_TOKEN can call the bot API. */
   botApiConfigured: boolean;

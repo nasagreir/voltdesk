@@ -189,7 +189,10 @@ async function readVehicleData(settings: AppSettings, tag: string): Promise<Reco
   throw lastError instanceof Error ? lastError : new TeslaRequestError("Tesla vehicle data failed", 502);
 }
 
-export async function fetchTeslaVehicles(settings: AppSettings): Promise<Vehicle[]> {
+export async function fetchTeslaVehicles(
+  settings: AppSettings,
+  options?: { wakeAsleep?: boolean },
+): Promise<Vehicle[]> {
   if (!settings.teslaClientId || !settings.teslaRefreshToken) {
     throw new TeslaRequestError("Tesla client id and refresh token are required", 400);
   }
@@ -198,8 +201,18 @@ export async function fetchTeslaVehicles(settings: AppSettings): Promise<Vehicle
   for (const car of listed.slice(0, 8)) {
     const tag = car.vin || String(car.id);
     const asleep = (car.state ?? "").toLowerCase() !== "online";
-    if (asleep) {
+    if (asleep && !options?.wakeAsleep) {
       vehicles.push(asleepVehicle(car));
+      continue;
+    }
+    if (asleep) {
+      try {
+        await wakeTeslaVehicle(settings, tag);
+        const data = await readVehicleData(settings, tag);
+        vehicles.push(mapVehicleData(car, data, settings));
+      } catch {
+        vehicles.push(asleepVehicle(car));
+      }
       continue;
     }
     try {

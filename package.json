@@ -8,7 +8,7 @@
     "start": "next start --port 3470 --hostname 0.0.0.0",
     "lint": "eslint",
     "user": "node scripts/voltdesk-user.mjs",
-    "test": "tsx --test src/lib/sessions.test.ts src/lib/reports.test.ts src/lib/bot-auth.test.ts src/lib/trips.test.ts src/lib/maintenance.test.ts src/lib/suggestions.test.ts src/lib/service-docs.test.ts src/lib/car-photos.test.ts src/lib/auth/password-stamp.test.ts src/lib/auth/user-cli.test.ts"
+    "test": "tsx --test src/lib/sessions.test.ts src/lib/reports.test.ts src/lib/bot-auth.test.ts src/lib/trips.test.ts src/lib/maintenance.test.ts src/lib/suggestions.test.ts src/lib/service-docs.test.ts src/lib/car-photos.test.ts src/lib/auth/password-stamp.test.ts src/lib/auth/user-cli.test.ts src/lib/live-data.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

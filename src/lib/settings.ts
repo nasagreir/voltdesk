@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getDataDir, getSettingsFilePath } from "@/lib/auth/paths";
 import { readJson, writeJson } from "@/lib/store";
+import { isLiveData } from "@/lib/live-data";
 import { normalizePaperlessTag } from "@/lib/service-docs";
 import type { AppSettings, BotApiToken, PublicSettings, SourcePreference, TeslaRegion } from "@/lib/types";
 
@@ -21,6 +22,7 @@ const DEFAULTS: AppSettings = {
   homeLat: null,
   homeLng: null,
   homeRadiusM: 200,
+  liveDataUntil: null,
   apiToken: "",
   apiTokens: [],
   grokApiKey: "",
@@ -152,6 +154,7 @@ export async function getSettings(): Promise<AppSettings> {
     homeLat: homeLat != null && Number.isFinite(homeLat) ? homeLat : null,
     homeLng: homeLng != null && Number.isFinite(homeLng) ? homeLng : null,
     homeRadiusM: Number(file.homeRadiusM ?? env.HOME_RADIUS_M ?? DEFAULTS.homeRadiusM) || 200,
+    liveDataUntil: typeof file.liveDataUntil === "string" && file.liveDataUntil.trim() ? file.liveDataUntil : null,
     apiToken: "",
     apiTokens: collectBotTokens(file),
     grokApiKey: typeof file.grokApiKey === "string" ? file.grokApiKey.trim() : "",
@@ -234,6 +237,8 @@ export function toPublicSettings(
     homeLat: settings.homeLat,
     homeLng: settings.homeLng,
     homeRadiusM: settings.homeRadiusM,
+    liveData: isLiveData(settings.liveDataUntil),
+    liveDataUntil: isLiveData(settings.liveDataUntil) ? settings.liveDataUntil : null,
     demoForced: demoForced(settings),
     botApiConfigured: fromFile || fromEnvironment,
     botApiFromFile: fromFile,
@@ -253,6 +258,13 @@ export function toPublicSettings(
     paperlessFromFile,
     paperlessFromEnvironment,
   };
+}
+
+export async function setLiveDataUntil(until: string | null) {
+  const file = await readJson<Record<string, unknown>>(getSettingsFilePath(), {});
+  file.liveDataUntil = until;
+  await fs.mkdir(getDataDir(), { recursive: true });
+  await writeJson(getSettingsFilePath(), file);
 }
 
 export async function saveSettings(next: AppSettings) {

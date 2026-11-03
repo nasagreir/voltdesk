@@ -4,7 +4,7 @@ Self-hosted Tesla dashboard in the same shape as [OrbitDesk](https://github.com/
 
 VoltDesk covers the TeslaMate vehicle screens in its own UI:
 
-- Garage: battery, rated, ideal, and estimated range, charge detail, climate, locks, sentry, tires, location, a studio photo of the model with a paint color for that car, a short suggestion list, and service status
+- Garage: battery, rated, ideal, and estimated range, charge detail, climate, locks, sentry, tires, location, a studio photo of the model with a paint color for that car, an optional 30-minute live view, a short suggestion list, and service status
 - Trips: each drive on a street map, the stats for that drive, and any date range within the stored history
 - Service: Tesla’s published maintenance intervals, with a place to mark each item done
 - Charges and charge detail, split into AC and DC, with voltage, current, phases, and cost
@@ -14,7 +14,7 @@ VoltDesk covers the TeslaMate vehicle screens in its own UI:
 
 The layout follows the iPhone Duo viewports from Safari 27.1: the 382px outer display (and Split View) keeps the bottom bar, the 669px inner display in portrait uses the top bar, and the 951px inner display in landscape puts the battery on one side of the hinge and the live stats on the other. Folded like a book, the header and that first row line up with the two viewport segments.
 
-It stores about 400 days of samples. While the car is driving or charging it polls about every 15 seconds. While the car is parked or asleep it keeps your normal interval and does not wake the car. That is polling, not TeslaMate's streaming websocket.
+It stores about 400 days of samples. While the car is driving or charging it polls about every 15 seconds. While the car is parked or asleep it keeps your normal interval and does not wake the car. Live data stays off until you turn it on from the garage. That window lasts 30 minutes, wakes the car, and checks about every 15 seconds, which drains the battery faster, then turns itself off. That is polling, not TeslaMate's streaming websocket.
 
 Not included, on purpose:
 

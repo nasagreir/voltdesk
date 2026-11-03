@@ -7,6 +7,7 @@ import { mergeAsleep, readLatest, readSamples, recordVehicles, writeLatest } fro
 import { buildReports } from "@/lib/reports";
 import { deriveCharges, deriveDrives } from "@/lib/sessions";
 import { tripSummary, tripsOverlapping } from "@/lib/trips";
+import { isLiveData, pollSeconds } from "@/lib/live-data";
 import { demoForced, getSettings } from "@/lib/settings";
 import { fetchTeslaVehicles, TeslaRequestError, wakeTeslaVehicle } from "@/lib/tesla-fleet";
 import type {
@@ -27,12 +28,20 @@ let cached: { at: number; payload: DashboardPayload } | null = null;
 let inflight: Promise<DashboardPayload> | null = null;
 
 function recordEvery(vehicles: Vehicle[], settings: AppSettings) {
-  const active = vehicles.some((vehicle) => vehicle.state === "driving" || vehicle.state === "charging");
-  return active ? Math.min(15, settings.pollIntervalSeconds) : settings.pollIntervalSeconds;
+  return pollSeconds(
+    vehicles.map((vehicle) => vehicle.state),
+    settings.pollIntervalSeconds,
+    isLiveData(settings.liveDataUntil),
+  );
 }
 
 function suggestedPoll(vehicles: Vehicle[], settings: AppSettings) {
   return recordEvery(vehicles, settings);
+}
+
+function liveFields(settings: AppSettings) {
+  const live = isLiveData(settings.liveDataUntil);
+  return { liveData: live, liveDataUntil: live ? settings.liveDataUntil : null };
 }
 
 function homeOf(settings: AppSettings) {
@@ -51,7 +60,7 @@ function presentAll(vehicles: Vehicle[], settings: AppSettings) {
 }
 
 async function fromTesla(settings: AppSettings): Promise<Vehicle[]> {
-  const live = await fetchTeslaVehicles(settings);
+  const live = await fetchTeslaVehicles(settings, { wakeAsleep: isLiveData(settings.liveDataUntil) });
   const latest = await readLatest();
   return live.map((vehicle) => mergeAsleep(vehicle, latest[vehicle.id]));
 }
@@ -90,7 +99,14 @@ async function loadLive(settings: AppSettings): Promise<{
   }
   if (wantHa) {
     try {
-      const vehicles = await fetchHomeAssistantVehicles(settings);
+      let vehicles = await fetchHomeAssistantVehicles(settings);
+      if (isLiveData(settings.liveDataUntil)) {
+        const sleeping = vehicles.filter((vehicle) => vehicle.state === "asleep" || vehicle.state === "offline");
+        if (sleeping.length > 0) {
+          await Promise.all(sleeping.map((vehicle) => wakeHomeAssistant(settings, vehicle.id).catch(() => null)));
+          vehicles = await fetchHomeAssistantVehicles(settings);
+        }
+      }
       await writeLatest(vehicles);
       await recordVehicles(vehicles, recordEvery(vehicles, settings));
       const note = errors.length ? ` Tesla was skipped (${errors[0]}).` : "";
@@ -109,10 +125,13 @@ async function loadLive(settings: AppSettings): Promise<{
 }
 
 async function compose(force = false): Promise<DashboardPayload> {
-  if (!force && cached && Date.now() - cached.at < CACHE_MS) return cached.payload;
   if (!force && inflight) return inflight;
   const task: Promise<DashboardPayload> = (async () => {
     const settings = await getSettings();
+    const live = isLiveData(settings.liveDataUntil);
+    if (!force && cached && cached.payload.liveData === live && Date.now() - cached.at < (live ? 5_000 : CACHE_MS)) {
+      return cached.payload;
+    }
     const units = { distance: settings.distanceUnit, temp: settings.tempUnit };
     const now = new Date().toISOString();
     try {
@@ -133,6 +152,7 @@ async function compose(force = false): Promise<DashboardPayload> {
               units,
               vehicles: presentAll(live.vehicles, settings),
               pollIntervalSeconds: suggestedPoll(live.vehicles, settings),
+              ...liveFields(settings),
             };
             cached = { at: Date.now(), payload };
             return payload;
@@ -150,7 +170,8 @@ async function compose(force = false): Promise<DashboardPayload> {
                   saved.map((vehicle) => ({ ...vehicle, stale: true })),
                   settings,
                 ),
-                pollIntervalSeconds: settings.pollIntervalSeconds,
+                pollIntervalSeconds: suggestedPoll(saved, settings),
+                ...liveFields(settings),
               };
               cached = { at: Date.now(), payload };
               return payload;
@@ -163,7 +184,8 @@ async function compose(force = false): Promise<DashboardPayload> {
               fetchedAt: now,
               units,
               vehicles: presentAll([demo.vehicle], settings),
-              pollIntervalSeconds: settings.pollIntervalSeconds,
+              pollIntervalSeconds: suggestedPoll([demo.vehicle], settings),
+              ...liveFields(settings),
             };
             cached = { at: Date.now(), payload };
             return payload;
@@ -179,7 +201,8 @@ async function compose(force = false): Promise<DashboardPayload> {
         fetchedAt: now,
         units,
         vehicles: presentAll([demo.vehicle], settings),
-        pollIntervalSeconds: settings.pollIntervalSeconds,
+        pollIntervalSeconds: suggestedPoll([demo.vehicle], settings),
+        ...liveFields(settings),
       };
     }
 
@@ -192,7 +215,8 @@ async function compose(force = false): Promise<DashboardPayload> {
       fetchedAt: now,
       units,
       vehicles: presentAll([demo.vehicle], settings),
-      pollIntervalSeconds: settings.pollIntervalSeconds,
+      pollIntervalSeconds: suggestedPoll([demo.vehicle], settings),
+      ...liveFields(settings),
     };
     cached = { at: Date.now(), payload };
     return payload;
