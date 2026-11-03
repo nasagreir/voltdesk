@@ -1,15 +1,7 @@
 import { connection, NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  isServiceId,
-  parseOdometer,
-  parseServiceDate,
-  presentMaintenance,
-  resolveMaintenance,
-  type MaintenanceState,
-} from "@/lib/maintenance";
-import { readMaintenanceFile, writeMaintenanceFile } from "@/lib/maintenance-store";
-import { getDashboard } from "@/lib/vehicle-service";
+import { maintenancePayload, openMaintenance, persistMaintenance } from "@/lib/maintenance-context";
+import { isServiceId, parseOdometer, parseServiceDate } from "@/lib/maintenance";
 
 const bodySchema = z
   .object({
@@ -26,39 +18,12 @@ const bodySchema = z
     message: "Nothing to save.",
   });
 
-async function context(vehicleId: string | null) {
-  const dash = await getDashboard();
-  const vehicle =
-    dash.vehicles.find((item) => item.id === vehicleId) ?? dash.vehicles[0] ?? null;
-  const now = new Date();
-  const saved = await readMaintenanceFile();
-  const odometerMi = vehicle?.odometerMi ?? 0;
-  return { dash, vehicle, now, saved, odometerMi };
-}
-
-function present(
-  state: MaintenanceState,
-  persisted: boolean,
-  ctx: Awaited<ReturnType<typeof context>>,
-) {
-  return presentMaintenance({
-    state,
-    persisted,
-    now: ctx.now,
-    odometerMi: ctx.odometerMi,
-    model: ctx.vehicle?.model ?? "",
-    vehicleName: ctx.vehicle?.name ?? null,
-    distanceUnit: ctx.dash.units.distance,
-  });
-}
-
 export async function GET(request: Request) {
   await connection();
   try {
     const vehicleId = new URL(request.url).searchParams.get("vehicle");
-    const ctx = await context(vehicleId);
-    const state = resolveMaintenance(ctx.saved, ctx.dash.mode, ctx.now, ctx.odometerMi);
-    return NextResponse.json(present(state, ctx.saved != null, ctx), {
+    const ctx = await openMaintenance(vehicleId);
+    return NextResponse.json(maintenancePayload(ctx.state, ctx.persisted, ctx), {
       headers: { "cache-control": "no-store" },
     });
   } catch (error) {
@@ -77,8 +42,8 @@ export async function POST(request: Request) {
   }
   try {
     const vehicleId = new URL(request.url).searchParams.get("vehicle");
-    const ctx = await context(vehicleId);
-    let state = resolveMaintenance(ctx.saved, ctx.dash.mode, ctx.now, ctx.odometerMi);
+    const ctx = await openMaintenance(vehicleId);
+    let state = ctx.state;
     const body = parsed.data;
     if (body.saltedRoads !== undefined) state = { ...state, saltedRoads: body.saltedRoads };
     if (body.mark) {
@@ -98,8 +63,8 @@ export async function POST(request: Request) {
         records: { ...state.records, [body.mark.id]: { at: dated.at, odometerMi } },
       };
     }
-    await writeMaintenanceFile(state);
-    return NextResponse.json(present(state, true, ctx), { headers: { "cache-control": "no-store" } });
+    await persistMaintenance(state);
+    return NextResponse.json(maintenancePayload(state, true, ctx), { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not save maintenance" },

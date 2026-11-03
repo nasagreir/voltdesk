@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getDataDir, getSettingsFilePath } from "@/lib/auth/paths";
 import { readJson, writeJson } from "@/lib/store";
+import { normalizePaperlessTag } from "@/lib/service-docs";
 import type { AppSettings, BotApiToken, PublicSettings, SourcePreference, TeslaRegion } from "@/lib/types";
 
 const DEFAULTS: AppSettings = {
@@ -23,6 +24,9 @@ const DEFAULTS: AppSettings = {
   apiToken: "",
   apiTokens: [],
   grokApiKey: "",
+  paperlessUrl: "",
+  paperlessToken: "",
+  paperlessTag: "VoltDesk",
 };
 
 export const BOT_TOKEN_LIMIT = 12;
@@ -151,12 +155,25 @@ export async function getSettings(): Promise<AppSettings> {
     apiToken: "",
     apiTokens: collectBotTokens(file),
     grokApiKey: typeof file.grokApiKey === "string" ? file.grokApiKey.trim() : "",
+    paperlessUrl: pick(file, env, "paperlessUrl", "PAPERLESS_URL").replace(/\/$/, ""),
+    paperlessToken: typeof file.paperlessToken === "string" ? file.paperlessToken.trim() : "",
+    paperlessTag: normalizePaperlessTag(
+      (typeof file.paperlessTag === "string" && file.paperlessTag.trim()) ||
+        env.PAPERLESS_TAG ||
+        process.env.PAPERLESS_TAG ||
+        "VoltDesk",
+    ),
   };
 }
 
 export async function environmentApiToken(): Promise<string> {
   const env = await readDotEnv();
   return (env.VOLTDESK_API_TOKEN ?? process.env.VOLTDESK_API_TOKEN ?? "").trim();
+}
+
+export async function environmentPaperlessToken(): Promise<string> {
+  const env = await readDotEnv();
+  return (env.PAPERLESS_TOKEN ?? process.env.PAPERLESS_TOKEN ?? "").trim();
 }
 
 export async function environmentGrokKey(): Promise<string> {
@@ -190,7 +207,7 @@ export function demoForced(settings: AppSettings): boolean {
 
 export function toPublicSettings(
   settings: AppSettings,
-  access?: { fromEnvironment?: boolean; grokFromEnvironment?: boolean },
+  access?: { fromEnvironment?: boolean; grokFromEnvironment?: boolean; paperlessFromEnvironment?: boolean },
 ): PublicSettings {
   const fromFile = settings.apiTokens.length > 0;
   const fromEnvironment =
@@ -199,6 +216,8 @@ export function toPublicSettings(
   const grokFromEnvironment =
     access?.grokFromEnvironment ??
     Boolean((process.env.XAI_API_KEY ?? process.env.GROK_API_KEY ?? "").trim());
+  const paperlessFromFile = Boolean(settings.paperlessToken);
+  const paperlessFromEnvironment = access?.paperlessFromEnvironment ?? Boolean((process.env.PAPERLESS_TOKEN ?? "").trim());
   return {
     source: settings.source,
     homeAssistantUrl: settings.homeAssistantUrl,
@@ -228,6 +247,11 @@ export function toPublicSettings(
     grokConfigured: grokFromFile || grokFromEnvironment,
     grokFromFile,
     grokFromEnvironment,
+    paperlessUrl: settings.paperlessUrl,
+    paperlessTag: settings.paperlessTag,
+    paperlessConfigured: Boolean(settings.paperlessUrl && (paperlessFromFile || paperlessFromEnvironment)),
+    paperlessFromFile,
+    paperlessFromEnvironment,
   };
 }
 

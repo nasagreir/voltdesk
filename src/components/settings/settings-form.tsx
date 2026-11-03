@@ -17,6 +17,8 @@ export function SettingsForm() {
   const [teslaRefreshToken, setTeslaRefreshToken] = useState("");
   const [clearHomeAssistantToken, setClearHomeAssistantToken] = useState(false);
   const [clearTeslaRefreshToken, setClearTeslaRefreshToken] = useState(false);
+  const [paperlessToken, setPaperlessToken] = useState("");
+  const [clearPaperlessToken, setClearPaperlessToken] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -44,6 +46,8 @@ export function SettingsForm() {
         teslaRefreshToken,
         clearHomeAssistantToken,
         clearTeslaRefreshToken,
+        paperlessToken,
+        clearPaperlessToken,
       }),
     });
     const body = await response.json();
@@ -56,6 +60,8 @@ export function SettingsForm() {
     setTeslaRefreshToken("");
     setClearHomeAssistantToken(false);
     setClearTeslaRefreshToken(false);
+    setPaperlessToken("");
+    setClearPaperlessToken(false);
     setSaved(true);
   }
 
@@ -212,6 +218,56 @@ export function SettingsForm() {
               onChange={(event) => setClearHomeAssistantToken(event.target.checked)}
             />
             Remove saved Home Assistant token
+          </label>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Paperless {settings.paperlessConfigured ? "· connected" : ""}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <p className="text-sm text-muted-foreground">
+            Service invoices are uploaded here and tagged so VoltDesk can list them by visit. The token stays on this server.
+          </p>
+          <Field label="URL">
+            <Input
+              value={settings.paperlessUrl}
+              placeholder="http://paperless.local:8000"
+              autoComplete="off"
+              onChange={(event) => setSettings({ ...settings, paperlessUrl: event.target.value })}
+            />
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="API token">
+              <Input
+                type="password"
+                value={paperlessToken}
+                autoComplete="off"
+                placeholder={settings.paperlessFromFile ? "Saved — paste to replace" : "Token"}
+                onChange={(event) => setPaperlessToken(event.target.value)}
+              />
+            </Field>
+            <Field label="Tag">
+              <Input
+                value={settings.paperlessTag}
+                maxLength={50}
+                onChange={(event) => setSettings({ ...settings, paperlessTag: event.target.value })}
+              />
+            </Field>
+          </div>
+          {settings.paperlessFromEnvironment && (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-mono">PAPERLESS_TOKEN</span> in the environment is also used. Clearing the saved token leaves that value in place.
+            </p>
+          )}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={clearPaperlessToken}
+              onChange={(event) => setClearPaperlessToken(event.target.checked)}
+            />
+            Remove saved Paperless token
           </label>
         </CardContent>
       </Card>

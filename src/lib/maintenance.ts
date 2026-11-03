@@ -1,6 +1,21 @@
 import { formatDistance } from "@/lib/format";
+import {
+  isVisitId,
+  visitTag,
+  type DocumentExt,
+  type DocumentStatus,
+  type ServiceVisit,
+  type StoredDocument,
+} from "@/lib/service-docs";
 import { chicagoDate, chicagoYMD, dayIndex } from "@/lib/time";
-import type { DistanceUnit, MaintenancePayload, ServiceItem, ServiceStatus } from "@/lib/types";
+import type {
+  DistanceUnit,
+  MaintenancePayload,
+  ServiceDocumentView,
+  ServiceItem,
+  ServiceStatus,
+  ServiceVisitView,
+} from "@/lib/types";
 
 export const SERVICE_IDS = [
   "tires",
@@ -20,7 +35,10 @@ export interface MaintenanceRecord {
 export interface MaintenanceState {
   saltedRoads: boolean;
   records: Partial<Record<ServiceId, MaintenanceRecord>>;
+  visits: ServiceVisit[];
 }
+
+export type { ServiceVisit, StoredDocument };
 
 const DAY_MS = 86_400_000;
 
@@ -100,6 +118,19 @@ export function demoRecords(now: Date, odometerMi: number): MaintenanceState["re
   };
 }
 
+export function demoVisits(now: Date, odometerMi: number): ServiceVisit[] {
+  return [
+    {
+      id: "demo0001",
+      at: new Date(now.getTime() - 40 * DAY_MS).toISOString(),
+      odometerMi: Math.max(0, odometerMi - 13000),
+      itemIds: ["brake-calipers"],
+      note: "Sample visit on the demo car. Attach an invoice to see it here.",
+      documents: [],
+    },
+  ];
+}
+
 export function resolveMaintenance(
   saved: MaintenanceState | null,
   mode: "live" | "demo",
@@ -107,13 +138,66 @@ export function resolveMaintenance(
   odometerMi: number,
 ): MaintenanceState {
   if (saved) return saved;
-  if (mode === "demo") return { saltedRoads: true, records: demoRecords(now, odometerMi) };
-  return { saltedRoads: true, records: {} };
+  if (mode === "demo") {
+    return { saltedRoads: true, records: demoRecords(now, odometerMi), visits: demoVisits(now, odometerMi) };
+  }
+  return { saltedRoads: true, records: {}, visits: [] };
+}
+
+const DOCUMENT_EXTS = new Set<DocumentExt>(["pdf", "png", "jpg", "webp"]);
+const DOCUMENT_STATUSES = new Set<DocumentStatus>(["ready", "filing", "missing"]);
+
+function sanitizeDocument(raw: unknown): StoredDocument | null {
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as Partial<StoredDocument>;
+  if (typeof item.id !== "string" || !/^[a-f0-9]{12}$/.test(item.id)) return null;
+  if (typeof item.name !== "string" || !item.name.trim()) return null;
+  if (typeof item.ext !== "string" || !DOCUMENT_EXTS.has(item.ext as DocumentExt)) return null;
+  if (typeof item.addedAt !== "string" || Number.isNaN(Date.parse(item.addedAt))) return null;
+  if (item.source !== "paperless" && item.source !== "local") return null;
+  if (typeof item.status !== "string" || !DOCUMENT_STATUSES.has(item.status)) return null;
+  const paperlessId = typeof item.paperlessId === "number" && Number.isFinite(item.paperlessId) ? item.paperlessId : null;
+  return {
+    id: item.id,
+    name: item.name.trim().slice(0, 80),
+    bytes: typeof item.bytes === "number" && item.bytes >= 0 ? Math.round(item.bytes) : 0,
+    ext: item.ext,
+    addedAt: item.addedAt,
+    source: item.source,
+    paperlessId,
+    taskId: typeof item.taskId === "string" ? item.taskId.slice(0, 80) : null,
+    status: item.status,
+  };
+}
+
+function sanitizeVisit(raw: unknown): ServiceVisit | null {
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as Partial<ServiceVisit>;
+  if (typeof item.id !== "string" || !isVisitId(item.id)) return null;
+  if (typeof item.at !== "string" || Number.isNaN(Date.parse(item.at))) return null;
+  const odometerMi =
+    typeof item.odometerMi === "number" && item.odometerMi >= 0 && item.odometerMi <= 2_000_000
+      ? item.odometerMi
+      : null;
+  const itemIds = Array.isArray(item.itemIds)
+    ? item.itemIds.filter((id): id is ServiceId => typeof id === "string" && isServiceId(id))
+    : [];
+  const documents = Array.isArray(item.documents)
+    ? item.documents.map(sanitizeDocument).filter((doc): doc is StoredDocument => doc != null).slice(0, 8)
+    : [];
+  return {
+    id: item.id,
+    at: item.at,
+    odometerMi,
+    itemIds,
+    note: typeof item.note === "string" ? item.note.trim().slice(0, 400) : "",
+    documents,
+  };
 }
 
 export function sanitizeMaintenance(raw: unknown): MaintenanceState | null {
   if (!raw || typeof raw !== "object") return null;
-  const body = raw as { saltedRoads?: unknown; records?: unknown };
+  const body = raw as { saltedRoads?: unknown; records?: unknown; visits?: unknown };
   const records: MaintenanceState["records"] = {};
   const source = body.records && typeof body.records === "object" ? (body.records as Record<string, unknown>) : {};
   for (const id of SERVICE_IDS) {
@@ -126,7 +210,31 @@ export function sanitizeMaintenance(raw: unknown): MaintenanceState | null {
       typeof odo === "number" && Number.isFinite(odo) && odo >= 0 && odo <= 2_000_000 ? odo : null;
     records[id] = { at, odometerMi };
   }
-  return { saltedRoads: body.saltedRoads !== false, records };
+  const visits = Array.isArray(body.visits)
+    ? body.visits.map(sanitizeVisit).filter((visit): visit is ServiceVisit => visit != null).slice(0, 40)
+    : [];
+  return { saltedRoads: body.saltedRoads !== false, records, visits };
+}
+
+export function serviceTitle(id: ServiceId): string {
+  return SPECS.find((spec) => spec.id === id)?.title ?? id;
+}
+
+/** A visit updates an item only when it is the newest record for that item. */
+export function withVisit(state: MaintenanceState, visit: ServiceVisit): MaintenanceState {
+  const records = { ...state.records };
+  const when = Date.parse(visit.at);
+  for (const id of visit.itemIds) {
+    const current = records[id];
+    if (current && Date.parse(current.at) > when) continue;
+    records[id] = { at: visit.at, odometerMi: visit.odometerMi };
+  }
+  const visits = [visit, ...state.visits.filter((saved) => saved.id !== visit.id)].slice(0, 40);
+  return { ...state, records, visits };
+}
+
+export function withoutVisit(state: MaintenanceState, visitId: string): MaintenanceState {
+  return { ...state, visits: state.visits.filter((visit) => visit.id !== visitId) };
 }
 
 export function parseServiceDate(value: string, now: Date): { at: string } | { error: string } {
@@ -253,6 +361,39 @@ export function evaluateMaintenance(input: {
   return items;
 }
 
+function chicagoDayLabel(at: string): string {
+  const date = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(at));
+  return `${date} CT`;
+}
+
+function presentVisits(visits: ServiceVisit[], unit: DistanceUnit, paperlessBase: string): ServiceVisitView[] {
+  return [...visits]
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+    .map((visit) => ({
+      id: visit.id,
+      dateLabel: chicagoDayLabel(visit.at),
+      odometerLabel: visit.odometerMi == null ? "Odometer not recorded" : formatDistance(visit.odometerMi, unit, 0),
+      note: visit.note,
+      itemIds: visit.itemIds,
+      items: visit.itemIds.map((id) => serviceTitle(id)),
+      tag: visitTag(visit.id),
+      documents: visit.documents.map((doc): ServiceDocumentView => ({
+        id: doc.id,
+        name: doc.name,
+        status: doc.status,
+        source: doc.source,
+        viewUrl: `/api/maintenance/documents/${doc.id}`,
+        paperlessUrl:
+          doc.paperlessId != null && paperlessBase ? `${paperlessBase}/documents/${doc.paperlessId}` : null,
+      })),
+    }));
+}
+
 export function presentMaintenance(input: {
   state: MaintenanceState;
   persisted: boolean;
@@ -261,7 +402,11 @@ export function presentMaintenance(input: {
   model: string;
   vehicleName: string | null;
   distanceUnit: DistanceUnit;
+  paperlessConfigured?: boolean;
+  paperlessTag?: string;
+  paperlessUrl?: string;
 }): MaintenancePayload {
+  const paperlessUrl = input.paperlessUrl ?? "";
   return {
     saltedRoads: input.state.saltedRoads,
     persisted: input.persisted,
@@ -278,5 +423,11 @@ export function presentMaintenance(input: {
       state: input.state,
       distanceUnit: input.distanceUnit,
     }),
+    visits: presentVisits(input.state.visits ?? [], input.distanceUnit, paperlessUrl),
+    paperless: {
+      configured: Boolean(input.paperlessConfigured),
+      tag: input.paperlessTag || "VoltDesk",
+      url: paperlessUrl,
+    },
   };
 }

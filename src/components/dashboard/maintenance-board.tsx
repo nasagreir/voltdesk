@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { ServiceVisits } from "@/components/dashboard/service-visits";
 import type { MaintenancePayload, ServiceStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<ServiceStatus, string> = {
@@ -145,6 +146,8 @@ export function MaintenanceBoard() {
           />
         </CardContent>
       </Card>
+
+      <ServiceVisits payload={payload} onPayload={setPayload} />
 
       <div className="grid gap-4">
         {payload.items.map((item) => (

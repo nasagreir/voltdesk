@@ -381,6 +381,10 @@ export interface AppSettings {
   apiTokens: BotApiToken[];
   /** xAI key saved in settings. Environment keys stay out of this field. */
   grokApiKey: string;
+  /** Paperless-ngx base URL. The API token is file-only, like the xAI key. */
+  paperlessUrl: string;
+  paperlessToken: string;
+  paperlessTag: string;
 }
 
 export interface BotApiToken {
@@ -423,6 +427,31 @@ export interface PublicSettings {
   grokConfigured: boolean;
   grokFromFile: boolean;
   grokFromEnvironment: boolean;
+  paperlessUrl: string;
+  paperlessTag: string;
+  paperlessConfigured: boolean;
+  paperlessFromFile: boolean;
+  paperlessFromEnvironment: boolean;
+}
+
+export interface ServiceDocumentView {
+  id: string;
+  name: string;
+  status: "ready" | "filing" | "missing";
+  source: "paperless" | "local";
+  viewUrl: string;
+  paperlessUrl: string | null;
+}
+
+export interface ServiceVisitView {
+  id: string;
+  dateLabel: string;
+  odometerLabel: string;
+  note: string;
+  itemIds: string[];
+  items: string[];
+  tag: string;
+  documents: ServiceDocumentView[];
 }
 
 export type ServiceStatus = "due" | "soon" | "ok" | "unset";
@@ -447,6 +476,8 @@ export interface MaintenancePayload {
   model: string | null;
   disclaimer: string;
   items: ServiceItem[];
+  visits: ServiceVisitView[];
+  paperless: { configured: boolean; tag: string; url: string };
 }
 
 export interface SuggestionItem {

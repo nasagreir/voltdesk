@@ -1,9 +1,11 @@
 import { connection, NextResponse } from "next/server";
 import { z } from "zod";
 import { clearDashboardCache } from "@/lib/vehicle-service";
+import { cleanPaperlessUrl, normalizePaperlessTag } from "@/lib/service-docs";
 import {
   environmentApiToken,
   environmentGrokKey,
+  environmentPaperlessToken,
   getSettings,
   saveSettings,
   toPublicSettings,
@@ -28,14 +30,19 @@ const bodySchema = z.object({
   homeLat: z.number().nullable(),
   homeLng: z.number().nullable(),
   homeRadiusM: z.number().min(20).max(5000),
+  paperlessUrl: z.string().max(300).optional(),
+  paperlessTag: z.string().max(50).optional(),
+  paperlessToken: z.string().max(500).optional(),
+  clearPaperlessToken: z.boolean().optional(),
 });
 
 async function publish(settings: Awaited<ReturnType<typeof getSettings>>) {
-  const [fromEnvironment, grokFromEnvironment] = await Promise.all([
+  const [fromEnvironment, grokFromEnvironment, paperlessFromEnvironment] = await Promise.all([
     environmentApiToken().then(Boolean),
     environmentGrokKey().then(Boolean),
+    environmentPaperlessToken().then(Boolean),
   ]);
-  return toPublicSettings(settings, { fromEnvironment, grokFromEnvironment });
+  return toPublicSettings(settings, { fromEnvironment, grokFromEnvironment, paperlessFromEnvironment });
 }
 
 export async function GET() {
@@ -72,7 +79,17 @@ export async function POST(request: Request) {
     homeLat: body.homeLat,
     homeLng: body.homeLng,
     homeRadiusM: body.homeRadiusM,
+    paperlessTag:
+      body.paperlessTag === undefined ? current.paperlessTag : normalizePaperlessTag(body.paperlessTag),
+    paperlessToken: body.clearPaperlessToken ? "" : body.paperlessToken?.trim() || current.paperlessToken,
   };
+  if (body.paperlessUrl !== undefined) {
+    const url = cleanPaperlessUrl(body.paperlessUrl);
+    if (typeof url !== "string") {
+      return NextResponse.json({ error: url.error }, { status: 400 });
+    }
+    next.paperlessUrl = url;
+  }
   await saveSettings(next);
   clearDashboardCache();
   return NextResponse.json(await publish(next));

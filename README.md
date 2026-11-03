@@ -141,6 +141,14 @@ The same Grok bot page can store an xAI key (`XAI_API_KEY` or `GROK_API_KEY` in 
 
 Service follows Tesla’s published list: tire rotation every 6,250 mi, a cabin air filter every 2 years on Model 3 and Model Y (3 years on Model S and Model X), a brake fluid health check every 4 years, wiper blades about once a year, and brake caliper cleaning every year or 12,500 mi where roads are salted. Lubrication of the caliper pins applies only to a Model Y built through February 2025. Salted roads start on, because the default home is Chicago, and you can turn that item off. Marking an item done records today and the current odometer unless you type an earlier date or mileage. This is a reminder, not a substitute for Controls → Service → Maintenance in the car.
 
+A service visit is one stop: a date, an odometer, the items covered, and the invoices. With Paperless-ngx connected, VoltDesk uploads each file through the Paperless API and puts two tags on it: the tag you set on Connections (default `VoltDesk`) and `vd-visit-` plus the visit id. The visit list is whatever Paperless has under that visit tag, so a file you tag by hand in Paperless shows up here too. Without Paperless, the file stays in `data/service-files` on this machine. Removing a document from a visit does not delete it from Paperless.
+
+```env
+PAPERLESS_URL=http://paperless.local:8000
+PAPERLESS_TOKEN=your-api-token
+PAPERLESS_TAG=VoltDesk
+```
+
 ## Scripts
 
 | Command | Description |
