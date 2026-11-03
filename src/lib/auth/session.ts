@@ -5,6 +5,7 @@ export const SESSION_COOKIE = "voltdesk_session";
 export interface SessionPayload {
   sub: string;
   username: string;
+  pwd: string;
 }
 
 function getSecret() {
@@ -18,8 +19,8 @@ function getSecret() {
   return new TextEncoder().encode(secret);
 }
 
-export async function createSessionToken(username: string): Promise<string> {
-  return new SignJWT({ username })
+export async function createSessionToken(username: string, passwordChangedAt = ""): Promise<string> {
+  return new SignJWT({ username, pwd: passwordChangedAt })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(username)
     .setIssuedAt()
@@ -37,7 +38,8 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
           ? payload.sub
           : null;
     if (!username) return null;
-    return { sub: username, username };
+    const pwd = typeof payload.pwd === "string" ? payload.pwd : "";
+    return { sub: username, username, pwd };
   } catch {
     return null;
   }

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { passwordChangedAtFor, sessionPasswordMatches } from "@/lib/auth/password-stamp";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/session";
 
 const PUBLIC_PATHS = [
@@ -25,7 +26,10 @@ export async function proxy(request: NextRequest) {
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  const session = token ? await verifySessionToken(token) : null;
+  const verified = token ? await verifySessionToken(token) : null;
+  const stamp = verified ? await passwordChangedAtFor(verified.username) : null;
+  const session =
+    verified && stamp != null && sessionPasswordMatches(verified.pwd, stamp) ? verified : null;
 
   if (!session && !isPublic) {
     if (pathname.startsWith("/api/")) {

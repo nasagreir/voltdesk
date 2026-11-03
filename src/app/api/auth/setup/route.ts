@@ -32,9 +32,9 @@ export async function POST(request: Request) {
     if (parsed.data.password !== parsed.data.confirmPassword) {
       return NextResponse.json({ error: "Passwords do not match" }, { status: 400 });
     }
-    const username = await createUser(parsed.data.username, parsed.data.password);
-    const token = await createSessionToken(username);
-    const response = NextResponse.json({ ok: true, username });
+    const user = await createUser(parsed.data.username, parsed.data.password);
+    const token = await createSessionToken(user.username, user.passwordChangedAt ?? "");
+    const response = NextResponse.json({ ok: true, username: user.username });
     response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(request));
     return response;
   } catch (error) {

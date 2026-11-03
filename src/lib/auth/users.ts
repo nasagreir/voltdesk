@@ -7,6 +7,7 @@ export interface StoredUser {
   passwordHash: string;
   createdAt: string;
   updatedAt: string;
+  passwordChangedAt?: string;
 }
 
 interface UsersFile {
@@ -54,14 +55,16 @@ export async function createUser(username: string, password: string) {
     throw new Error(`User "${trimmed}" already exists`);
   }
   const now = new Date().toISOString();
-  data.users.push({
+  const user: StoredUser = {
     username: trimmed,
     passwordHash: await bcrypt.hash(password, 12),
     createdAt: now,
     updatedAt: now,
-  });
+    passwordChangedAt: now,
+  };
+  data.users.push(user);
   await writeUsersFile(data);
-  return trimmed;
+  return user;
 }
 
 export async function verifyUser(username: string, password: string) {

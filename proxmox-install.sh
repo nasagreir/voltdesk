@@ -696,7 +696,7 @@ msg "Installed — http://${IP:-<ct-ip>}:${APP_PORT}"
 msg "First start: open the URL and create your username / password"
 msg "Config: ${APP_DIR}/.env.local"
 msg "Update: update   (backs up + auto-rolls back on failure)"
-msg "Users:  voltdesk-user list | reset-password USERNAME"
+msg "Users:  voltdesk-user reset-password USERNAME  (hidden prompt, signs browsers out)"
 CT_INSTALL_EOF
 }
 
@@ -745,6 +745,7 @@ done_msg() {
   msg_ok "${APP} is ready"
   echo "  URL    : http://${ip:-<ct-ip>}:${VOLTDESK_PORT}"
   echo "  Setup  : open the URL and create your username / password"
+  echo "  Reset  : pct enter ${CTID}  then  voltdesk-user reset-password USERNAME"
   echo "  Update : pct enter ${CTID}  then  update"
   echo "  CT ID  : ${CTID}"
   echo "  Shell  : pct enter ${CTID}"

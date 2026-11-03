@@ -67,6 +67,8 @@ update
 
 ### Password recovery
 
+The sign-in page has the same commands under Forgot the password. There is no email reset.
+
 ```bash
 pct enter CTID
 voltdesk-user list
@@ -74,7 +76,7 @@ voltdesk-user reset-password ghull
 # or: voltdesk-user create ghull
 ```
 
-Type the username by itself. `<ghull>` is shell redirection.
+The prompt asks twice and does not echo. Press Enter to generate a password. A reset signs browsers out of that account. Type the username by itself. `<ghull>` is shell redirection. For a script, set `VOLTDESK_PASSWORD` instead of putting the password on the command line.
 
 ## Quick start (local)
 
@@ -158,6 +160,7 @@ PAPERLESS_TAG=VoltDesk
 | `npm run start` | Serve on `0.0.0.0:3470` |
 | `npm test` | Drive, charge, and report tests |
 | `npm run user -- create admin` | Create a login from the CLI |
+| `npm run user -- reset-password admin` | Reset a login. Inside the LXC the command is `voltdesk-user reset-password` |
 | `update` | LXC update with backup and rollback |
 | `bash proxmox-install.sh` | Pasteable Proxmox LXC installer |
 

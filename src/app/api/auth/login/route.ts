@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "Invalid username or password" }, { status: 401 });
     }
-    const token = await createSessionToken(user.username);
+    const token = await createSessionToken(user.username, user.passwordChangedAt ?? "");
     const response = NextResponse.json({ ok: true, username: user.username });
     response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(request));
     return response;

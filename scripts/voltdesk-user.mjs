@@ -11,7 +11,6 @@
  * Env:
  *   VOLTDESK_DATA_DIR  (default: <app>/data or /opt/voltdesk/data)
  */
-import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { createRequire } from "node:module";
 import { promises as fs } from "node:fs";
@@ -66,16 +65,75 @@ async function writeUsers(data) {
 
 async function promptHidden(label) {
   if (!input.isTTY) {
-    throw new Error("Password prompt requires an interactive TTY");
+    throw new Error("Password prompt requires an interactive TTY. Set VOLTDESK_PASSWORD for a script.");
   }
-  const rl = createInterface({ input, output });
+  output.write(label);
+  let skipEscape = false;
+  const chars = [];
+  input.setRawMode(true);
+  input.resume();
   try {
-    // readline can't hide easily everywhere; still better than argv in process list
-    const value = await rl.question(label);
-    return value;
+    return await new Promise((resolve, reject) => {
+      const onData = (buf) => {
+        const text = buf.toString("utf8");
+        for (const ch of text) {
+          if (skipEscape) {
+            if (/[A-Za-z~]/.test(ch)) skipEscape = false;
+            continue;
+          }
+          if (ch === "\u0003") {
+            cleanup();
+            output.write("\n");
+            reject(new Error("Canceled"));
+            return;
+          }
+          if (ch === "\n" || ch === "\r") {
+            cleanup();
+            output.write("\n");
+            resolve(chars.join(""));
+            return;
+          }
+          if (ch === "\u007f" || ch === "\b") {
+            chars.pop();
+            continue;
+          }
+          if (ch === "\u001b") {
+            skipEscape = true;
+            continue;
+          }
+          if (ch < " ") continue;
+          chars.push(ch);
+        }
+      };
+      function cleanup() {
+        input.off("data", onData);
+      }
+      input.on("data", onData);
+    });
   } finally {
-    rl.close();
+    if (input.isTTY) input.setRawMode(false);
+    input.pause();
   }
+}
+
+async function choosePassword(passwordArg) {
+  if (passwordArg) {
+    console.error("That password was visible on the command line. Prefer a blank prompt or VOLTDESK_PASSWORD.");
+    return { password: passwordArg, generated: false };
+  }
+  if (process.env.VOLTDESK_PASSWORD) {
+    return { password: process.env.VOLTDESK_PASSWORD, generated: false };
+  }
+  if (input.isTTY) {
+    const first = await promptHidden("New password (Enter to generate one): ");
+    if (!first) {
+      return { password: generatePassword(), generated: true };
+    }
+    const second = await promptHidden("Confirm password: ");
+    if (first !== second) throw new Error("Those passwords did not match.");
+    return { password: first, generated: false };
+  }
+  return { password: generatePassword(), generated: true };
 }
 
 function generatePassword() {
@@ -91,7 +149,10 @@ Usage:
   voltdesk-user reset-password USERNAME [password]
   voltdesk-user path
 
+The prompt does not echo the password. Press Enter to generate one.
+A reset signs browsers out of that account.
 Do not type angle brackets. Those are shell redirection, not part of the name.
+A password typed on the command line is visible in the shell history. For a script, set VOLTDESK_PASSWORD.
 
 Examples:
   voltdesk-user list
@@ -159,20 +220,9 @@ async function cmdCreate(username, passwordArg) {
   if (data.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
     throw new Error(`User "${username}" already exists`);
   }
-  let password = passwordArg;
-  let generated = false;
-  if (!password) {
-    if (input.isTTY) {
-      password = await promptHidden("Password (empty = generate): ");
-      if (!password) {
-        password = generatePassword();
-        generated = true;
-      }
-    } else {
-      password = generatePassword();
-      generated = true;
-    }
-  }
+  const chosen = await choosePassword(passwordArg);
+  const password = chosen.password;
+  const generated = chosen.generated;
   if (password.length < 8) throw new Error("Password must be at least 8 characters");
   const now = new Date().toISOString();
   data.users.push({
@@ -180,6 +230,7 @@ async function cmdCreate(username, passwordArg) {
     passwordHash: await bcrypt.hash(password, 12),
     createdAt: now,
     updatedAt: now,
+    passwordChangedAt: now,
   });
   await writeUsers(data);
   console.log(`Created user "${username}"`);
@@ -200,29 +251,21 @@ async function cmdReset(username, passwordArg) {
   );
   if (idx < 0) throw new Error(`User "${username}" not found`);
 
-  let password = passwordArg;
-  let generated = false;
-  if (!password) {
-    if (input.isTTY) {
-      password = await promptHidden("New password (empty = generate): ");
-      if (!password) {
-        password = generatePassword();
-        generated = true;
-      }
-    } else {
-      password = generatePassword();
-      generated = true;
-    }
-  }
+  const chosen = await choosePassword(passwordArg);
+  const password = chosen.password;
+  const generated = chosen.generated;
   if (password.length < 8) throw new Error("Password must be at least 8 characters");
+  const now = new Date().toISOString();
 
   data.users[idx] = {
     ...data.users[idx],
     passwordHash: await bcrypt.hash(password, 12),
-    updatedAt: new Date().toISOString(),
+    updatedAt: now,
+    passwordChangedAt: now,
   };
   await writeUsers(data);
   console.log(`Password reset for "${data.users[idx].username}"`);
+  console.log("Existing browser sessions for that account are signed out.");
   if (generated) console.log(`Generated password: ${password}`);
   console.log(`Store: ${USERS_FILE}`);
 }

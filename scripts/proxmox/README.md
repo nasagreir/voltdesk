@@ -42,7 +42,7 @@ systemctl status voltdesk
 nano /opt/voltdesk/.env.local
 systemctl restart voltdesk
 
-# Password recovery / user admin (LXC CLI)
+# Password recovery from the LXC shell. The prompt is hidden and signs browsers out.
 voltdesk-user list
 voltdesk-user reset-password admin
 voltdesk-user create alice
