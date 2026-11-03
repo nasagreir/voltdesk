@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RouteMap } from "@/components/dashboard/route-map";
+import { TripMap } from "@/components/dashboard/trip-map";
 import { formatDistance, formatFixed, formatTemp, money } from "@/lib/format";
 import { formatChicagoStamp } from "@/lib/time";
 import type { ChargeSession, DistanceUnit, DriveSession, TempUnit, VehicleSample } from "@/lib/types";
@@ -36,6 +36,18 @@ export function SessionDetail({ kind, id }: { kind: "drive" | "charge"; id: stri
     distance: "mi",
     temp: "F",
   });
+  const [backHref, setBackHref] = useState(kind === "drive" ? "/trips" : "/charges");
+
+  useEffect(() => {
+    if (kind !== "drive") return;
+    const params = new URLSearchParams(window.location.search);
+    const from = params.get("from");
+    const to = params.get("to");
+    if (!from || !to) return;
+    const href = `/trips?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    const timer = setTimeout(() => setBackHref(href), 0);
+    return () => clearTimeout(timer);
+  }, [kind]);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,8 +93,8 @@ export function SessionDetail({ kind, id }: { kind: "drive" | "charge"; id: stri
   return (
     <div className="space-y-4">
       <div>
-        <Link href={kind === "drive" ? "/drives" : "/charges"} className="text-sm text-muted-foreground hover:text-foreground">
-          {kind === "drive" ? "Drives" : "Charges"}
+        <Link href={kind === "drive" ? backHref : "/charges"} className="text-sm text-muted-foreground hover:text-foreground">
+          {kind === "drive" ? "Trips" : "Charges"}
         </Link>
         <h1 className="font-heading text-2xl tracking-tight">
           {drive ? `${drive.fromLabel} to ${drive.toLabel}` : `${charge?.kind} · ${charge?.placeLabel}`}
@@ -115,7 +127,7 @@ export function SessionDetail({ kind, id }: { kind: "drive" | "charge"; id: stri
               <CardTitle>Route</CardTitle>
             </CardHeader>
             <CardContent>
-              <RouteMap points={drive.path} />
+              <TripMap trips={[{ id: drive.id, path: drive.path }]} selectedId={drive.id} />
             </CardContent>
           </Card>
         </>

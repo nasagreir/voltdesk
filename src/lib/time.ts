@@ -115,6 +115,21 @@ export function chicagoParts(date: Date): {
   };
 }
 
+export function formatYMD(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** Inclusive Chicago calendar range ending today. `days` of 1 is today only. */
+export function presetRange(days: number, now = new Date()): { from: string; to: string } {
+  const today = chicagoParts(now);
+  const span = Math.max(1, Math.round(days));
+  const start = new Date(Date.UTC(today.y, today.m - 1, today.d - (span - 1)));
+  return {
+    from: formatYMD(start.getUTCFullYear(), start.getUTCMonth() + 1, start.getUTCDate()),
+    to: formatYMD(today.y, today.m, today.d),
+  };
+}
+
 export function formatChicagoStamp(date: Date): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",

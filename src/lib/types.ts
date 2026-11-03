@@ -325,6 +325,26 @@ export interface HistorySummary {
   maxBattery: number | null;
 }
 
+export interface TripsPayload {
+  from: string;
+  to: string;
+  fromDay: string;
+  toDay: string;
+  vehicleId: string | null;
+  vehicleName: string | null;
+  mode: ConnectionMode;
+  source: DataSource;
+  message: string;
+  units: { distance: DistanceUnit; temp: TempUnit };
+  summary: {
+    count: number;
+    distanceMi: number;
+    durationMin: number;
+    avgWhPerMi: number | null;
+  };
+  trips: DriveSession[];
+}
+
 export interface HistoryPayload {
   range: HistoryRange;
   vehicleId: string | null;

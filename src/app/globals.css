@@ -170,3 +170,22 @@
     }
   }
 }
+
+.leaflet-container {
+  z-index: 0;
+  background: #121214;
+  font-family: inherit;
+}
+
+.leaflet-container img {
+  max-width: none;
+}
+
+.leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+
+.leaflet-control-attribution {
+  max-width: 12rem;
+  font-size: 10px;
+}

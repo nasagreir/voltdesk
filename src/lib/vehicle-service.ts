@@ -6,6 +6,7 @@ import { readAddresses, rememberAddresses, resolveFences } from "@/lib/places";
 import { mergeAsleep, readLatest, readSamples, recordVehicles, writeLatest } from "@/lib/recorder";
 import { buildReports } from "@/lib/reports";
 import { deriveCharges, deriveDrives } from "@/lib/sessions";
+import { tripSummary, tripsOverlapping } from "@/lib/trips";
 import { demoForced, getSettings } from "@/lib/settings";
 import { fetchTeslaVehicles, TeslaRequestError, wakeTeslaVehicle } from "@/lib/tesla-fleet";
 import type {
@@ -16,6 +17,7 @@ import type {
   HistoryPayload,
   HistoryRange,
   ReportsPayload,
+  TripsPayload,
   Vehicle,
   VehicleSample,
 } from "@/lib/types";
@@ -236,6 +238,28 @@ export async function getHistory(range: HistoryRange, vehicleId?: string | null)
     units: { distance: settings.distanceUnit, temp: settings.tempUnit },
     message: dashboard.message,
   });
+}
+
+export async function getTrips(from: Date, to: Date, fromDay: string, toDay: string, vehicleId?: string | null): Promise<TripsPayload> {
+  const { settings, dashboard, selected, fences, samples } = await contextFor(vehicleId);
+  const addresses = await readAddresses();
+  const drives = deriveDrives(samples, fences, addresses);
+  const trips = tripsOverlapping(drives, from.getTime(), to.getTime());
+  const vehicle = dashboard.vehicles.find((item) => item.id === selected) ?? dashboard.vehicles[0];
+  return {
+    from: from.toISOString(),
+    to: to.toISOString(),
+    fromDay,
+    toDay,
+    vehicleId: selected,
+    vehicleName: vehicle?.name ?? null,
+    mode: dashboard.mode,
+    source: dashboard.source,
+    message: dashboard.message,
+    units: { distance: settings.distanceUnit, temp: settings.tempUnit },
+    summary: tripSummary(trips),
+    trips,
+  };
 }
 
 export async function getReports(days: number, vehicleId?: string | null): Promise<ReportsPayload> {
