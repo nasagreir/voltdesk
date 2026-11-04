@@ -565,4 +565,8 @@ export interface SuggestionsPayload {
   grokConfigured: boolean;
   note?: string;
   items: SuggestionItem[];
+  /** Problems Grok called out, or the car's own checks when Grok is quiet. */
+  warnings: SuggestionItem[];
+  warningSource: "grok" | "car";
+  warningNote?: string;
 }

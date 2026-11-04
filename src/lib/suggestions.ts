@@ -14,6 +14,15 @@ export interface SuggestionFacts {
   sentry: boolean | null;
   atHome: boolean | null;
   outsideTempC: number | null;
+  insideTempC: number | null;
+  locked: boolean | null;
+  doorOpen: boolean;
+  windowsOpen: boolean;
+  frunkOpen: boolean;
+  trunkOpen: boolean;
+  chargePortOpen: boolean;
+  chargingState: string;
+  alerts: string[];
   service: Pick<ServiceItem, "title" | "status" | "remaining" | "detail">[];
 }
 
@@ -29,7 +38,9 @@ export function clearSuggestionCache() {
 export function suggestionCacheKey(facts: SuggestionFacts, day: string): string {
   const battery = Math.round(facts.batteryPercent / 5) * 5;
   const service = facts.service.map((item) => `${item.title}:${item.status}`).join(",");
-  return `${facts.id}|${battery}|${service}|${day}`;
+  const tires = facts.tpmsPsi.some((value) => value != null && (value < 36 || value > 48)) ? "tires" : "ok";
+  const open = [facts.doorOpen, facts.windowsOpen, facts.frunkOpen, facts.trunkOpen, facts.chargePortOpen].filter(Boolean).length;
+  return `${facts.id}|${battery}|${service}|${tires}|${open}|${facts.locked === false ? "unlocked" : "locked"}|${facts.alerts.length}|${day}`;
 }
 
 function tireIssue(values: Array<number | null>): string | null {
@@ -44,7 +55,8 @@ function tireIssue(values: Array<number | null>): string | null {
   return `The tires differ by about ${spread.toFixed(1)} psi. Check them cold and set them even.`;
 }
 
-export function localSuggestions(facts: SuggestionFacts): SuggestionItem[] {
+/** Problems read off the car. No filler tips. */
+export function localWarnings(facts: SuggestionFacts): SuggestionItem[] {
   const items: SuggestionItem[] = [];
   const tires = tireIssue(facts.tpmsPsi);
   if (tires) items.push({ title: "Tire pressures", detail: tires });
@@ -79,6 +91,26 @@ export function localSuggestions(facts: SuggestionFacts): SuggestionItem[] {
       detail: "The car is parked away from home with Sentry off.",
     });
   }
+  if (facts.locked === false && facts.atHome === false && parked) {
+    items.push({
+      title: "Unlocked away from home",
+      detail: "The car is parked away from home and unlocked.",
+    });
+  }
+  if (parked) {
+    const open = [
+      facts.doorOpen ? "a door" : "",
+      facts.windowsOpen ? "a window" : "",
+      facts.frunkOpen ? "the frunk" : "",
+      facts.trunkOpen ? "the trunk" : "",
+    ].filter(Boolean);
+    if (open.length > 0) {
+      items.push({
+        title: "Something is open",
+        detail: `${open.join(", ")} while the car is parked.`,
+      });
+    }
+  }
   const service =
     facts.service.find((item) => item.status === "due") ??
     facts.service.find((item) => item.status === "soon");
@@ -89,6 +121,12 @@ export function localSuggestions(facts: SuggestionFacts): SuggestionItem[] {
       detail: `${when}: ${service.remaining}. ${service.detail}`,
     });
   }
+  return items.slice(0, 3);
+}
+
+export function localSuggestions(facts: SuggestionFacts): SuggestionItem[] {
+  const items = localWarnings(facts);
+  const tires = tireIssue(facts.tpmsPsi);
   const fillers: SuggestionItem[] = [
     {
       title: "Daily charge habit",
@@ -114,20 +152,18 @@ export function localSuggestions(facts: SuggestionFacts): SuggestionItem[] {
 }
 
 export function parseGrokSuggestions(text: string): SuggestionItem[] {
-  let raw = text.trim();
-  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence?.[1]) raw = fence[1].trim();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  const list = Array.isArray(parsed)
-    ? parsed
-    : parsed && typeof parsed === "object" && Array.isArray((parsed as { suggestions?: unknown }).suggestions)
-      ? (parsed as { suggestions: unknown[] }).suggestions
-      : [];
+  return parseGrokNotes(text).suggestions;
+}
+
+export interface GrokNotes {
+  suggestions: SuggestionItem[];
+  warnings: SuggestionItem[];
+  /** True when the JSON included a warnings array, including an empty one. */
+  sawWarnings: boolean;
+}
+
+function readItems(list: unknown): SuggestionItem[] {
+  if (!Array.isArray(list)) return [];
   const items: SuggestionItem[] = [];
   for (const item of list) {
     if (!item || typeof item !== "object") continue;
@@ -146,33 +182,73 @@ export function parseGrokSuggestions(text: string): SuggestionItem[] {
   return items;
 }
 
+export function parseGrokNotes(text: string): GrokNotes {
+  let raw = text.trim();
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence?.[1]) raw = fence[1].trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { suggestions: [], warnings: [], sawWarnings: false };
+  }
+  if (Array.isArray(parsed)) {
+    return { suggestions: readItems(parsed), warnings: [], sawWarnings: false };
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return { suggestions: [], warnings: [], sawWarnings: false };
+  }
+  const record = parsed as { suggestions?: unknown; warnings?: unknown };
+  const sawWarnings = Array.isArray(record.warnings);
+  return {
+    suggestions: readItems(record.suggestions),
+    warnings: sawWarnings ? readItems(record.warnings) : [],
+    sawWarnings,
+  };
+}
+
 export function grokFactSheet(facts: SuggestionFacts): string {
   const tires = facts.tpmsPsi.map((value) => (value == null ? "—" : value.toFixed(0))).join(", ");
   const outside =
     facts.outsideTempC == null ? "" : `Outside: about ${Math.round((facts.outsideTempC * 9) / 5 + 32)} F`;
+  const inside =
+    facts.insideTempC == null ? "" : `Inside: about ${Math.round((facts.insideTempC * 9) / 5 + 32)} F`;
+  const open = [
+    facts.doorOpen ? "door" : "",
+    facts.windowsOpen ? "window" : "",
+    facts.frunkOpen ? "frunk" : "",
+    facts.trunkOpen ? "trunk" : "",
+    facts.chargePortOpen ? "charge port" : "",
+  ].filter(Boolean);
   const service =
     facts.service.length === 0
       ? "Service: nothing tracked"
       : `Service: ${facts.service.map((item) => `${item.title} ${item.status} (${item.remaining})`).join("; ")}`;
+  const alerts = facts.alerts.length === 0 ? "Alerts: none" : `Alerts: ${facts.alerts.join("; ")}`;
   return [
     `Model: ${facts.model || "Tesla"}`,
     `State: ${facts.state}`,
     `Battery: ${Math.round(facts.batteryPercent)}%`,
     `Charge limit: ${Math.round(facts.chargeLimitPercent)}%`,
+    `Charging: ${facts.chargingState || "unknown"}`,
     `Odometer: about ${Math.round(facts.odometerMi / 100) * 100} mi`,
     `Tire psi, front left to rear right: ${tires}`,
     `Software: ${facts.softwareVersion || "unknown"}${facts.updateAvailable ? `, update waiting ${facts.updateAvailable}` : ""}`,
     `Climate on: ${facts.climateOn ? "yes" : "no"}`,
     `Sentry: ${facts.sentry == null ? "unknown" : facts.sentry ? "on" : "off"}`,
+    `Locked: ${facts.locked == null ? "unknown" : facts.locked ? "yes" : "no"}`,
     `At home: ${facts.atHome == null ? "unknown" : facts.atHome ? "yes" : "no"}`,
+    `Open: ${open.length === 0 ? "none" : open.join(", ")}`,
     outside,
+    inside,
+    alerts,
     service,
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-async function askGrok(apiKey: string, facts: string, signal: AbortSignal): Promise<SuggestionItem[]> {
+async function askGrok(apiKey: string, facts: string, signal: AbortSignal): Promise<GrokNotes> {
   const model = process.env.GROK_MODEL || "grok-4.7";
   const response = await fetch("https://api.x.ai/v1/chat/completions", {
     method: "POST",
@@ -183,12 +259,12 @@ async function askGrok(apiKey: string, facts: string, signal: AbortSignal): Prom
     body: JSON.stringify({
       model,
       temperature: 0.3,
-      max_tokens: 400,
+      max_tokens: 700,
       messages: [
         {
           role: "system",
           content:
-            'You suggest three short, practical notes for the owner of this Tesla. Use only the facts given. Do not invent a maintenance interval, a part number, or a repair. Do not suggest waking, unlocking, or starting the car. Reply with JSON only, no markdown: {"suggestions":[{"title":"...","detail":"..."}]}. Each title is at most 60 characters. Each detail is at most 180 characters.',
+            'You write notes for the owner of this Tesla. Use only the facts given. Do not invent a maintenance interval, a part number, or a repair. Do not suggest waking, unlocking, or starting the car. Reply with JSON only, no markdown: {"suggestions":[{"title":"...","detail":"..."}],"warnings":[{"title":"...","detail":"..."}]}. suggestions is about three short practical notes. warnings lists only things that look wrong. Use an empty warnings array when nothing looks wrong. Each title is at most 60 characters. Each detail is at most 180 characters.',
         },
         { role: "user", content: facts },
       ],
@@ -197,9 +273,9 @@ async function askGrok(apiKey: string, facts: string, signal: AbortSignal): Prom
   });
   if (!response.ok) throw new Error("Grok did not answer");
   const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const items = parseGrokSuggestions(body.choices?.[0]?.message?.content ?? "");
-  if (items.length === 0) throw new Error("Grok returned no suggestions");
-  return items;
+  const notes = parseGrokNotes(body.choices?.[0]?.message?.content ?? "");
+  if (notes.suggestions.length === 0) throw new Error("Grok returned no suggestions");
+  return notes;
 }
 
 function fill(items: SuggestionItem[], local: SuggestionItem[]): SuggestionItem[] {
@@ -210,6 +286,10 @@ function fill(items: SuggestionItem[], local: SuggestionItem[]): SuggestionItem[
     out.push(item);
   }
   return out.slice(0, 3);
+}
+
+function carWarnings(facts: SuggestionFacts, warningNote?: string): Pick<SuggestionsPayload, "warnings" | "warningSource" | "warningNote"> {
+  return { warnings: localWarnings(facts), warningSource: "car", warningNote };
 }
 
 export async function suggestionsFor(
@@ -224,6 +304,7 @@ export async function suggestionsFor(
       grokConfigured: false,
       note: "An xAI key on the Grok bot page will have Grok write these.",
       items: local,
+      ...carWarnings(facts, "An xAI key on the Grok bot page will have Grok write these."),
     };
   }
   const hit = cache.get(cacheKey);
@@ -232,8 +313,15 @@ export async function suggestionsFor(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
   try {
-    const items = fill(await askGrok(apiKey, grokFactSheet(facts), controller.signal), local);
-    const payload: SuggestionsPayload = { source: "grok", grokConfigured: true, items };
+    const notes = await askGrok(apiKey, grokFactSheet(facts), controller.signal);
+    const payload: SuggestionsPayload = {
+      source: "grok",
+      grokConfigured: true,
+      items: fill(notes.suggestions, local),
+      ...(notes.sawWarnings
+        ? { warnings: notes.warnings, warningSource: "grok" as const }
+        : carWarnings(facts)),
+    };
     cache.set(cacheKey, { at: Date.now(), payload });
     return payload;
   } catch {
@@ -242,6 +330,7 @@ export async function suggestionsFor(
       grokConfigured: true,
       note: "Grok did not answer. These are from the car.",
       items: local,
+      ...carWarnings(facts, "Grok did not answer. These are from the car."),
     };
     cache.set(cacheKey, { at: Date.now(), payload });
     return payload;

@@ -254,7 +254,7 @@ curl -s -H "Authorization: Bearer vd_…" http://localhost:3470/api/v1/summary
 
 Creating or revoking a token is `POST /api/bot/token` and requires the VoltDesk login. Send `{ "name": "Grok bot" }` to create one, or `{ "revoke": true, "id": "…" }` to revoke one.
 
-The same Grok bot page can store an xAI key (`XAI_API_KEY` or `GROK_API_KEY` in `.env.local` also works). With a key, the garage asks Grok for about three short suggestions from the car’s battery, tires, software, and service dates. Without a key, those notes are computed on the car and labeled that way. The request leaves out the VIN, Tesla and Home Assistant secrets, and home coordinates. Wake, unlock, and start stay off that call too.
+The same Grok bot page can store an xAI key (`XAI_API_KEY` or `GROK_API_KEY` in `.env.local` also works). With a key, the garage asks Grok for about three short suggestions and for warnings of what looks wrong, using the car’s battery, tires, software, open panels, and service dates. An empty warning list is allowed when nothing looks wrong. Without a key, the notes and the warnings are computed on the car. Those warnings are only real problems, and they are not labeled as Grok. The request leaves out the VIN, Tesla and Home Assistant secrets, and home coordinates. Wake, unlock, and start stay off that call too.
 
 ## Service
 

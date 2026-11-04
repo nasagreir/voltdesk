@@ -45,6 +45,15 @@ export async function GET(request: Request) {
       sentry: vehicle.sentry,
       atHome: vehicle.atHome,
       outsideTempC: vehicle.outsideTempC,
+      insideTempC: vehicle.insideTempC,
+      locked: vehicle.locked,
+      doorOpen: vehicle.doorOpen,
+      windowsOpen: vehicle.windowsOpen,
+      frunkOpen: vehicle.frunkOpen,
+      trunkOpen: vehicle.trunkOpen,
+      chargePortOpen: vehicle.chargePortOpen,
+      chargingState: vehicle.chargingState,
+      alerts: vehicle.alerts,
       service,
     };
     const day = chicagoYMD(now);

@@ -437,7 +437,7 @@ export function Garage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 min-[560px]:grid-cols-2 book:gap-x-7">
+      <div className="grid gap-4 min-[560px]:grid-cols-2 min-[960px]:grid-cols-3 book:gap-x-7">
         <GrokSuggestions />
         <ServiceSummary />
       </div>
