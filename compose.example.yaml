@@ -1,0 +1,79 @@
+# Example Compose file for VoltDesk.
+#
+# `docker compose up` reads compose.yaml, which is this same service without
+# the comments. Copy this file over compose.yaml only when you want to change
+# the published address, the data location, or the Home Assistant host route.
+#
+#   git clone https://github.com/nasagreir/voltdesk.git
+#   cd voltdesk
+#   cp .env.example .env
+#   docker compose up -d --build
+#
+# Then open http://<host>:3470 and create the first username and password.
+# The container does not set a login. With no Tesla or Home Assistant values
+# in .env, the first account sees the demo Model Y.
+
+services:
+  voltdesk:
+    build:
+      context: .
+      target: runtime
+    image: voltdesk:local
+    restart: unless-stopped
+    ports:
+      # 0.0.0.0 publishes 3470 on every interface, same as the Proxmox LXC.
+      # Set VOLTDESK_BIND=127.0.0.1 in .env to keep it on this machine.
+      - "${VOLTDESK_BIND:-0.0.0.0}:3470:3470"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "3470"
+      VOLTDESK_DATA_DIR: /data
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Uncomment to set values here instead of .env. The first login inherits
+      # these. Later logins start empty and paste their own Fleet token.
+      # HOME_ASSISTANT_URL: http://192.168.1.20:8123
+      # HOME_ASSISTANT_TOKEN: your-long-lived-token
+      # TESLA_ENTITY_PREFIX: model_y
+      # TESLA_CLIENT_ID: your-fleet-client-id
+      # TESLA_REFRESH_TOKEN: your-refresh-token
+      # TESLA_REGION: na
+      # VOLTDESK_SOURCE: auto
+      # ELECTRICITY_RATE_USD: "0.16"
+      # HOME_LABEL: Home
+      # HOME_LAT: "41.8800"
+      # HOME_LNG: "-87.6300"
+      # WORK_LABEL: Work
+      # WORK_RATE_USD: "0"
+      # PAPERLESS_URL: http://paperless.local:8000
+      # PAPERLESS_TOKEN: your-api-token
+      # XAI_API_KEY: your-xai-key
+    volumes:
+      # Named volume. Docker creates it and uid 1001 can write it.
+      - voltdesk-data:/data
+      # A folder on the host instead of the named volume. Create it first
+      # and give it to uid 1001, or the container cannot save users or history:
+      #   sudo mkdir -p /srv/voltdesk/data
+      #   sudo chown 1001:1001 /srv/voltdesk/data
+      # - /srv/voltdesk/data:/data
+    # Linux only, when Home Assistant is on this same machine and you want
+    # HOME_ASSISTANT_URL=http://host.docker.internal:8123
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.PORT||3470)+'/api/auth/me').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  voltdesk-data:

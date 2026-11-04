@@ -89,33 +89,107 @@ On Docker the same command is `docker compose exec voltdesk voltdesk-user`. Add 
 
 ## Docker
 
-This container runs the same VoltDesk as the Proxmox LXC. Keep the two installs in step.
+This container runs the same VoltDesk as the Proxmox LXC. Port 3470, stored data, and the operator commands match. You need Docker Engine and the Compose plugin (`docker compose version`). The annotated file is [`compose.example.yaml`](compose.example.yaml). `docker compose up` reads [`compose.yaml`](compose.yaml), which is that same service.
+
+### Install
+
+On the machine that will run VoltDesk:
 
 ```bash
+git clone https://github.com/nasagreir/voltdesk.git
+cd voltdesk
+cp .env.example .env
 docker compose up -d --build
 ```
 
-Open `http://<host>:3470`. The published port listens on every interface, same as the LXC. Set `VOLTDESK_BIND=127.0.0.1` in `.env` to keep it on that machine.
+The first build compiles the Next.js app inside the image, so it takes a few minutes. When the container is healthy, open `http://<host>:3470` and create the username and password. The installer does not create a login. With `TESLA_CLIENT_ID` and `HOME_ASSISTANT_URL` left blank, that first account sees the demo Model Y until you paste a Fleet token or a Home Assistant token on Connections.
 
-Users, each login's settings and history, service files, and the signing secret live in the `voltdesk-data` volume at `/data` inside the container. Per-login files are under `/data/users`. Copy `.env.example` to `.env` for Home Assistant, Tesla Fleet, Paperless, or a Grok key. Leave `AUTH_SECRET` unset and the container writes a secret into the volume on first start. The placeholder in the example is ignored. Set your own only when it is at least 16 characters.
+`0.0.0.0:3470` is published on every interface, same as the LXC. To keep the port on that machine only, set this in `.env` before you start:
+
+```env
+VOLTDESK_BIND=127.0.0.1
+```
+
+Check that it came up:
+
+```bash
+docker compose ps
+docker compose logs -f voltdesk
+```
+
+`healthy` means `GET /api/auth/me` inside the container answered. Ctrl-C leaves the container running.
+
+### What to put in `.env`
+
+`.env.example` lists every setting. Compose loads `.env` when the file is present and starts without it. Common values:
+
+```env
+# Home Assistant. Use the LAN address. localhost inside the container is VoltDesk itself.
+HOME_ASSISTANT_URL=http://192.168.1.20:8123
+HOME_ASSISTANT_TOKEN=your-long-lived-token
+TESLA_ENTITY_PREFIX=model_y
+
+# Tesla Fleet API. The first login inherits these. Later logins start empty.
+TESLA_CLIENT_ID=your-fleet-client-id
+TESLA_REFRESH_TOKEN=your-refresh-token
+TESLA_REGION=na
+
+VOLTDESK_SOURCE=auto
+ELECTRICITY_RATE_USD=0.16
+```
+
+Leave `AUTH_SECRET` as the placeholder in the example, or delete the line. A secret shorter than 16 characters is ignored. On first start the container writes a signing secret to `/data/auth-secret` in the volume. That file is not a login. Set your own only when you want browsers to keep working across a volume you restore onto another machine, and make it at least 16 characters.
+
+On Linux, Home Assistant on the same host is not `localhost`. Use the host's LAN address, or uncomment `extra_hosts` in `compose.example.yaml` and set `HOME_ASSISTANT_URL=http://host.docker.internal:8123`.
+
+You can put the same keys under `environment:` in the Compose file instead of `.env`. The example file shows them commented out. Do not commit a `.env` that has real tokens.
+
+### Data
+
+Users, each login's settings and history, service files, and the signing secret live in the `voltdesk-data` volume at `/data` inside the container. Per-login files are under `/data/users`. The process runs as uid 1001. The named volume is already writable by that user.
+
+To keep the files in a folder you can see, create it and change the volume line as in `compose.example.yaml`:
+
+```bash
+sudo mkdir -p /srv/voltdesk/data
+sudo chown 1001:1001 /srv/voltdesk/data
+```
+
+```yaml
+volumes:
+  - /srv/voltdesk/data:/data
+```
+
+A bind mount owned by root comes up and then cannot save a login.
+
+### Accounts
 
 ```bash
 docker compose exec voltdesk voltdesk-user list
 docker compose exec -it voltdesk voltdesk-user reset-password ghull
+docker compose exec voltdesk voltdesk-user create ada
 ```
 
-The process runs as uid 1001. The named volume is already writable by that user. A bind mount in place of the volume needs the same ownership.
+Add `-it` when you want the hidden password prompt. `VOLTDESK_PASSWORD` sets it without a prompt. A reset signs browsers out of that account.
 
-Pull a new release and rebuild. The volume stays.
+### Update
+
+Pull the release and rebuild. The volume stays, including users and history.
 
 ```bash
 git pull
 docker compose up -d --build
 ```
 
+There is no automatic image rollback on Docker. The LXC `update` command snapshots `/opt/voltdesk` and rolls back a failed build. On Docker, keep the previous image (`docker image ls voltdesk`) if you want a way back.
+
+### Stop
+
 `docker compose down` stops the container and keeps `voltdesk-data`. `docker compose down -v` deletes that volume, including users, history, and the signing secret.
 
-For a live-reloading checkout, use the dev file. It listens on `127.0.0.1:3470` and mounts the source. Rebuild it after `package.json` changes.
+### Live reload
+
+For a checkout you are editing, the dev file listens on `127.0.0.1:3470` and mounts the source. Rebuild it after `package.json` changes. It is not loaded by `docker compose up`.
 
 ```bash
 docker compose -f compose.yaml -f compose.dev.yaml up --build
@@ -221,5 +295,6 @@ PAPERLESS_TAG=VoltDesk
 | `proxmox-install.sh` | Single file you paste on the Proxmox host |
 | `scripts/proxmox/ct-install.sh` | The same in-container install, kept readable |
 | `Dockerfile` | Production image, plus a `dev` stage |
-| `compose.yaml` | Container, port 3470, and the `voltdesk-data` volume |
+| `compose.yaml` | Container, port 3470, and the `voltdesk-data` volume. This is what `docker compose up` reads |
+| `compose.example.yaml` | The same service with comments for bind mounts, `.env` keys, and a Home Assistant host route |
 | `compose.dev.yaml` | Opt-in live reload. Not loaded by `docker compose up` |
