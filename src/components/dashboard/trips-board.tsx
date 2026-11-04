@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ShareCardButton } from "@/components/dashboard/share-card-button";
 import { TripMap } from "@/components/dashboard/trip-map";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDistance, formatFixed, formatTemp } from "@/lib/format";
+import {
+  DRIVE_SHARE_DEFAULTS,
+  DRIVE_SHARE_PRESETS,
+  driveShareOptions,
+  driveShareTitle,
+  formatDuration,
+  formatShareRange,
+  formatSpeed,
+  formatWh,
+  RANGE_SHARE_DEFAULTS,
+  rangeShareOptions,
+} from "@/lib/share-card";
 import { formatChicagoStamp, presetRange } from "@/lib/time";
 import { parseTripRange } from "@/lib/trips";
 import type { DistanceUnit, DriveSession, TempUnit, TripsPayload } from "@/lib/types";
@@ -23,23 +36,29 @@ const presets = [
   { label: "All", days: 400 },
 ];
 
-function duration(minutes: number) {
-  const rounded = Math.max(0, Math.round(minutes));
-  if (rounded < 60) return `${rounded} min`;
-  const hours = Math.floor(rounded / 60);
-  const mins = rounded % 60;
-  return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
-}
-
-function wh(value: number | null, unit: DistanceUnit) {
-  if (value == null) return "—";
-  const shown = unit === "km" ? value / 1.609344 : value;
-  return `${Math.round(shown)} Wh/${unit}`;
-}
-
-function speed(mph: number, unit: DistanceUnit) {
-  const value = unit === "km" ? mph * 1.609344 : mph;
-  return `${Math.round(value)} ${unit === "km" ? "km/h" : "mph"}`;
+function DriveShare({
+  trip,
+  unit,
+  temp,
+  size = "xs",
+}: {
+  trip: DriveSession;
+  unit: DistanceUnit;
+  temp: TempUnit;
+  size?: "xs" | "sm";
+}) {
+  return (
+    <ShareCardButton
+      kind="trip"
+      size={size}
+      title={driveShareTitle(trip)}
+      subtitle={`${formatChicagoStamp(new Date(trip.startedAt))} CT`}
+      footnote="VoltDesk"
+      options={driveShareOptions(trip, unit, temp)}
+      defaults={DRIVE_SHARE_DEFAULTS}
+      presets={DRIVE_SHARE_PRESETS}
+    />
+  );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -162,9 +181,18 @@ export function TripsBoard() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Trips" value={String(payload.summary.count)} />
             <Stat label="Distance" value={formatDistance(payload.summary.distanceMi, unit, 1)} />
-            <Stat label="Time driving" value={duration(payload.summary.durationMin)} />
-            <Stat label="Efficiency" value={wh(payload.summary.avgWhPerMi, unit)} />
+            <Stat label="Time driving" value={formatDuration(payload.summary.durationMin)} />
+            <Stat label="Efficiency" value={formatWh(payload.summary.avgWhPerMi, unit)} />
           </div>
+          <ShareCardButton
+            kind="trips"
+            label="Share this range"
+            title={payload.vehicleName || "Trips"}
+            subtitle={formatShareRange(from, to)}
+            footnote="Times are Central · VoltDesk"
+            options={rangeShareOptions(payload.summary, unit)}
+            defaults={RANGE_SHARE_DEFAULTS}
+          />
 
           <div className="duo-fold grid items-start gap-4 min-[900px]:grid-cols-[minmax(0,1.15fr)_minmax(16rem,0.85fr)]">
             <div className="min-w-0 space-y-3">
@@ -215,16 +243,19 @@ export function TripsBoard() {
                       <p className="shrink-0 text-sm">{formatDistance(trip.distanceMi, unit, 1)}</p>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {formatChicagoStamp(new Date(trip.startedAt))} CT · {duration(trip.durationMin)} ·{" "}
-                      {Math.round(trip.startBattery)}→{Math.round(trip.endBattery)}% · {wh(trip.efficiencyWhPerMi, unit)}
+                      {formatChicagoStamp(new Date(trip.startedAt))} CT · {formatDuration(trip.durationMin)} ·{" "}
+                      {Math.round(trip.startBattery)}→{Math.round(trip.endBattery)}% · {formatWh(trip.efficiencyWhPerMi, unit)}
                     </p>
                   </button>
-                  <Link
-                    href={`/trips/${encodeURIComponent(trip.id)}?from=${from}&to=${to}`}
-                    className="mt-1 inline-block text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                  >
-                    Trip details
-                  </Link>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/trips/${encodeURIComponent(trip.id)}?from=${from}&to=${to}`}
+                      className="text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                    >
+                      Trip details
+                    </Link>
+                    <DriveShare trip={trip} unit={unit} temp={temp} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -254,18 +285,21 @@ function TripFacts({
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <Stat label="Distance" value={formatDistance(trip.distanceMi, unit, 1)} />
-        <Stat label="Duration" value={duration(trip.durationMin)} />
-        <Stat label="Avg speed" value={speed(trip.avgSpeedMph, unit)} />
-        <Stat label="Max speed" value={speed(trip.maxSpeedMph, unit)} />
+        <Stat label="Duration" value={formatDuration(trip.durationMin)} />
+        <Stat label="Avg speed" value={formatSpeed(trip.avgSpeedMph, unit)} />
+        <Stat label="Max speed" value={formatSpeed(trip.maxSpeedMph, unit)} />
         <Stat label="Battery" value={`${Math.round(trip.startBattery)}→${Math.round(trip.endBattery)}%`} />
-        <Stat label="Efficiency" value={wh(trip.efficiencyWhPerMi, unit)} />
+        <Stat label="Efficiency" value={formatWh(trip.efficiencyWhPerMi, unit)} />
         <Stat label="Energy" value={formatFixed(trip.energyNetKwh, "kWh", 2)} />
         <Stat label="Elevation" value={trip.elevationGainM == null ? "—" : `${Math.round(trip.elevationGainM)} m`} />
         <Stat label="Outside" value={formatTemp(trip.outsideTempC, temp)} />
       </div>
-      <Link href={href} className="text-sm underline-offset-2 hover:underline">
-        Open the full trip
-      </Link>
+      <div className="flex flex-wrap items-center gap-3">
+        <Link href={href} className="text-sm underline-offset-2 hover:underline">
+          Open the full trip
+        </Link>
+        <DriveShare trip={trip} unit={unit} temp={temp} size="sm" />
+      </div>
     </div>
   );
 }

@@ -10,11 +10,13 @@ import { OdometerChart } from "@/components/dashboard/odometer-chart";
 import { ReadingHistory } from "@/components/dashboard/reading-history";
 import { SpeedStats } from "@/components/dashboard/speed-stats";
 import { ServiceSummary } from "@/components/dashboard/service-summary";
+import { ShareCardButton } from "@/components/dashboard/share-card-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CAR_SHARE_DEFAULTS, CAR_SHARE_PRESETS, carShareOptions } from "@/lib/share-card";
 import type { DashboardPayload, VehicleView } from "@/lib/types";
 
 const STATE_LABEL: Record<VehicleView["state"], string> = {
@@ -242,6 +244,15 @@ export function Garage() {
                 {item.name}
               </Button>
             ))}
+          <ShareCardButton
+            kind="car"
+            title={vehicle.name}
+            subtitle={`${vehicle.model} · ${vehicle.trim} · ${STATE_LABEL[vehicle.state]}`}
+            footnote={`${vehicle.display.updated} · VoltDesk`}
+            options={carShareOptions(vehicle)}
+            defaults={CAR_SHARE_DEFAULTS}
+            presets={CAR_SHARE_PRESETS}
+          />
           <Badge variant={vehicle.stale ? "outline" : "secondary"}>{STATE_LABEL[vehicle.state]}</Badge>
         </div>
       </div>

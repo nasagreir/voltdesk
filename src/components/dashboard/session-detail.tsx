@@ -16,9 +16,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ShareCardButton } from "@/components/dashboard/share-card-button";
 import { TripMap } from "@/components/dashboard/trip-map";
 import { formatChargeCost } from "@/lib/charge-cost";
 import { formatDistance, formatFixed, formatTemp, money } from "@/lib/format";
+import {
+  DRIVE_SHARE_DEFAULTS,
+  DRIVE_SHARE_PRESETS,
+  driveShareOptions,
+  driveShareTitle,
+} from "@/lib/share-card";
 import { formatChicagoStamp } from "@/lib/time";
 import type { ChargeSession, DistanceUnit, DriveSession, TempUnit, VehicleSample } from "@/lib/types";
 
@@ -190,6 +197,19 @@ export function SessionDetail({ kind, id }: { kind: "drive" | "charge"; id: stri
           {formatChicagoStamp(new Date((drive ?? charge)!.startedAt))}
           {(drive ?? charge)?.inProgress ? " · in progress" : ""}
         </p>
+        {drive && (
+          <div className="mt-3">
+            <ShareCardButton
+              kind="trip"
+              title={driveShareTitle(drive)}
+              subtitle={`${formatChicagoStamp(new Date(drive.startedAt))} CT`}
+              footnote="VoltDesk"
+              options={driveShareOptions(drive, units.distance, units.temp)}
+              defaults={DRIVE_SHARE_DEFAULTS}
+              presets={DRIVE_SHARE_PRESETS}
+            />
+          </div>
+        )}
       </div>
 
       {drive && (
