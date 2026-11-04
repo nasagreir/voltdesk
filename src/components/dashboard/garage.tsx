@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { BatteryDial } from "@/components/dashboard/battery-dial";
 import { CarPortrait } from "@/components/dashboard/car-portrait";
 import { GrokSuggestions } from "@/components/dashboard/grok-suggestions";
 import { LiveData } from "@/components/dashboard/live-data";
-import { ChargeHistory } from "@/components/dashboard/charge-history";
 import { OdometerChart } from "@/components/dashboard/odometer-chart";
 import { ReadingHistory } from "@/components/dashboard/reading-history";
 import { SpeedStats } from "@/components/dashboard/speed-stats";
@@ -13,8 +13,8 @@ import { ServiceSummary } from "@/components/dashboard/service-summary";
 import { ShareCardButton } from "@/components/dashboard/share-card-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CAR_SHARE_DEFAULTS, CAR_SHARE_PRESETS, carShareOptions } from "@/lib/share-card";
 import type { DashboardPayload, VehicleView } from "@/lib/types";
@@ -341,22 +341,33 @@ export function Garage() {
       <div className="grid gap-4 min-[560px]:grid-cols-2 book:gap-x-7">
         <Card>
           <CardHeader>
-            <CardTitle>Charge</CardTitle>
+            <CardTitle>Charging</CardTitle>
+            <CardDescription>
+              {vehicle.chargeCosts
+                ? `${vehicle.chargeCosts.total} over ${vehicle.chargeCosts.windowDays} days`
+                : "Open the charging tab for the full readings"}
+            </CardDescription>
+            <CardAction>
+              <Link href="/charging" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Details
+              </Link>
+            </CardAction>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
             <Fact label="State" value={vehicle.chargingState || "—"} />
-            <ReadingHistory vehicleId={vehicle.id} metric="charger" idPrefix="charger" label="Power" value={vehicle.display.chargerPower} />
-            <ReadingHistory vehicleId={vehicle.id} metric="chargeRate" idPrefix="rate" label="Rate" value={vehicle.display.chargeRate} />
-            <Fact label="Time to limit" value={vehicle.display.timeToFull} />
-            <Fact label="Done by" value={vehicle.display.doneBy} />
-            <Fact label="Added" value={vehicle.display.energyAdded} />
-            <Fact label="Cable" value={vehicle.cable || "—"} />
+            <Fact label="Power" value={vehicle.display.chargerPower} />
+            {vehicle.state === "charging" ? (
+              <>
+                <Fact label="Done by" value={vehicle.display.doneBy} />
+                <Fact label="Time to limit" value={vehicle.display.timeToFull} />
+              </>
+            ) : (
+              <>
+                <Fact label="Added" value={vehicle.display.energyAdded} />
+                <Fact label="Rate" value={vehicle.display.chargeRate} />
+              </>
+            )}
           </CardContent>
-          {vehicle.chargeCosts && (
-            <CardContent className="space-y-2 border-t border-white/10">
-              <ChargeHistory vehicleId={vehicle.id} initial={vehicle.chargeCosts} />
-            </CardContent>
-          )}
         </Card>
         <Card>
           <CardHeader>

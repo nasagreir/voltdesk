@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Car, ChartLine, Clock3, LogOut, MapPin, Route, Settings2, Wrench } from "lucide-react";
+import { BatteryCharging, Car, ChartLine, Clock3, LogOut, MapPin, Route, Settings2, Wrench } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/", label: "Garage", icon: Car },
+  { href: "/charging", label: "Charging", icon: BatteryCharging },
   { href: "/trips", label: "Trips", icon: Route },
   { href: "/timeline", label: "Timeline", icon: Clock3 },
   { href: "/reports", label: "Reports", icon: ChartLine },
@@ -17,6 +18,14 @@ const links = [
   { href: "/maintenance", label: "Service", icon: Wrench },
   { href: "/settings", label: "Connections", icon: Settings2 },
 ];
+
+function linkActive(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  if (href === "/charging") {
+    return pathname === "/charging" || pathname === "/charges" || pathname.startsWith("/charges/");
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -60,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
             <nav className="hidden min-w-0 items-center gap-0.5 overflow-x-auto min-[560px]:flex">
               {links.map((link) => {
-                const active = link.href === "/" ? pathname === "/" : pathname === link.href || pathname.startsWith(`${link.href}/`);
+                const active = linkActive(pathname, link.href);
                 return (
                   <Link
                     key={link.href}
@@ -86,10 +95,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-background/95 backdrop-blur min-[560px]:hidden">
-        <div className="grid grid-cols-7 px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))]">
+        <div className="grid grid-cols-8 px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))]">
           {links.map((link) => {
             const Icon = link.icon;
-            const active = link.href === "/" ? pathname === "/" : pathname === link.href || pathname.startsWith(`${link.href}/`);
+            const active = linkActive(pathname, link.href);
             return (
               <Link
                 key={link.href}

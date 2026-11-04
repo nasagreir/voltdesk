@@ -130,7 +130,7 @@ export function SessionDetail({ kind, id }: { kind: "drive" | "charge"; id: stri
     distance: "mi",
     temp: "F",
   });
-  const [backHref, setBackHref] = useState(kind === "drive" ? "/trips" : "/charges");
+  const [backHref, setBackHref] = useState(kind === "drive" ? "/trips" : "/charging");
 
   useEffect(() => {
     if (kind !== "drive") return;
@@ -187,8 +187,8 @@ export function SessionDetail({ kind, id }: { kind: "drive" | "charge"; id: stri
   return (
     <div className="space-y-4">
       <div>
-        <Link href={kind === "drive" ? backHref : "/charges"} className="text-sm text-muted-foreground hover:text-foreground">
-          {kind === "drive" ? "Trips" : "Charges"}
+        <Link href={backHref} className="text-sm text-muted-foreground hover:text-foreground">
+          {kind === "drive" ? "Trips" : "Charging"}
         </Link>
         <h1 className="font-heading text-2xl tracking-tight">
           {drive ? `${drive.fromLabel} to ${drive.toLabel}` : `${charge?.kind} · ${charge?.placeLabel}`}
