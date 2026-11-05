@@ -12,7 +12,9 @@ import {
   DialogPortal,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { paintShareCard } from "@/lib/share-card-paint";
+import { routeBackdrop } from "@/lib/route-backdrop";
+import { paintShareCard, SHARE_MAP_HEIGHT, SHARE_MAP_WIDTH } from "@/lib/share-card-paint";
+import type { LatLng } from "@/lib/route-frame";
 import {
   initialShareSelection,
   pickShareStats,
@@ -32,6 +34,7 @@ export function ShareCardButton({
   options,
   defaults,
   presets = [],
+  route,
   label = "Share card",
   size = "sm",
   variant = "outline",
@@ -43,6 +46,8 @@ export function ShareCardButton({
   options: ShareStat[];
   defaults: string[];
   presets?: SharePreset[];
+  /** Drawn behind a single trip. Other cards stay plain. */
+  route?: LatLng[];
   label?: string;
   size?: "xs" | "sm" | "default";
   variant?: "outline" | "ghost" | "secondary";
@@ -51,21 +56,40 @@ export function ShareCardButton({
   const [selected, setSelected] = useState<string[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const backdropRef = useRef<HTMLCanvasElement | null>(null);
   const choices = usableShareStats(options);
   const stats = pickShareStats(choices, selected);
   const optionKey = choices.map((stat) => `${stat.id}:${stat.value}`).join("|");
+  const tripRoute = kind === "trip" ? route : undefined;
+  const routeKey = (tripRoute ?? []).map((point) => `${point.lat.toFixed(4)},${point.lng.toFixed(4)}`).join(";");
 
   useEffect(() => {
     if (!open) return;
-    const draw = () => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      paintShareCard(canvas, { title, subtitle, footnote, stats: pickShareStats(choices, selected) });
+      const card = {
+        title,
+        subtitle,
+        footnote,
+        stats: pickShareStats(choices, selected),
+        route: tripRoute,
+      };
+      backdropRef.current = null;
+      paintShareCard(canvas, card);
+      if (!tripRoute || tripRoute.length < 2) return;
+      void routeBackdrop(tripRoute, SHARE_MAP_WIDTH, SHARE_MAP_HEIGHT).then((backdrop) => {
+        if (cancelled || !backdrop || !canvasRef.current) return;
+        backdropRef.current = backdrop;
+        paintShareCard(canvasRef.current, { ...card, backdrop, mapped: true });
+      });
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
     };
-    draw();
-    const frame = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frame);
-  }, [open, title, subtitle, footnote, optionKey, selected, choices]);
+  }, [open, title, subtitle, footnote, optionKey, selected, choices, tripRoute, routeKey]);
 
   function openDialog() {
     setSelected(initialShareSelection(choices, defaults));
@@ -90,7 +114,15 @@ export function ShareCardButton({
   async function fileFromCanvas(): Promise<File> {
     const canvas = canvasRef.current;
     if (!canvas) throw new Error("Could not build the PNG.");
-    paintShareCard(canvas, { title, subtitle, footnote, stats });
+    paintShareCard(canvas, {
+      title,
+      subtitle,
+      footnote,
+      stats,
+      route: tripRoute,
+      backdrop: backdropRef.current,
+      mapped: Boolean(backdropRef.current),
+    });
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
     if (!blob) throw new Error("Could not build the PNG.");
     return new File([blob], shareFilename(kind, title), { type: "image/png" });
@@ -148,7 +180,9 @@ export function ShareCardButton({
               <div>
                 <DialogTitle>Share card</DialogTitle>
                 <DialogDescription>
-                  Pick up to six stats. The PNG leaves out the VIN and the car&apos;s location.
+                  {tripRoute && tripRoute.length >= 2
+                    ? "Pick up to six stats. The PNG leaves out the VIN. The background is this drive on a map."
+                    : "Pick up to six stats. The PNG leaves out the VIN and the car's location."}
                 </DialogDescription>
               </div>
               <DialogClose />
@@ -195,7 +229,11 @@ export function ShareCardButton({
             </div>
             {note && <p className="mt-2 text-sm text-muted-foreground">{note}</p>}
             <canvas ref={canvasRef} aria-label="Share card preview" className="mt-3 h-auto w-full rounded-lg" />
-            <p className="mt-2 text-xs text-muted-foreground">1080 px wide. No VIN or location.</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {tripRoute && tripRoute.length >= 2
+                ? "1080 px wide. No VIN. The route is the background."
+                : "1080 px wide. No VIN or location."}
+            </p>
           </DialogPopup>
         </DialogPortal>
       </Dialog>

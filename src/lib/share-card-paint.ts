@@ -1,3 +1,4 @@
+import { frameRoute, usableRoute, type LatLng } from "./route-frame";
 import { SHARE_CARD_MAX, SHARE_CARD_WIDTH, type ShareStat } from "./share-card";
 
 export interface ShareCardPaint {
@@ -5,6 +6,11 @@ export interface ShareCardPaint {
   subtitle: string;
   stats: ShareStat[];
   footnote: string;
+  /** Drive path. Drawn on the card when there are at least two points. */
+  route?: LatLng[];
+  /** Stitched map tiles the same size as the card. */
+  backdrop?: CanvasImageSource | null;
+  mapped?: boolean;
 }
 
 function headingFamily(): string {
@@ -90,13 +96,18 @@ function setLetterSpacing(ctx: CanvasRenderingContext2D, spacing: string) {
   (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = spacing;
 }
 
+const CARD_PAD = 72;
+/** Map panel on a trip card. The tile fetch uses these exact pixels. */
+export const SHARE_MAP_WIDTH = SHARE_CARD_WIDTH - CARD_PAD * 2;
+export const SHARE_MAP_HEIGHT = 640;
+
 export function paintShareCard(canvas: HTMLCanvasElement, card: ShareCardPaint): void {
   const stats = card.stats.slice(0, SHARE_CARD_MAX);
   const width = SHARE_CARD_WIDTH;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not build the PNG.");
   const family = headingFamily();
-  const pad = 72;
+  const pad = CARD_PAD;
   const titleWidth = width - pad * 2;
   const rows = Math.max(1, Math.ceil(stats.length / 2));
   const cols = stats.length === 1 ? 1 : 2;
@@ -111,15 +122,62 @@ export function paintShareCard(canvas: HTMLCanvasElement, card: ShareCardPaint):
   ctx.font = `400 30px ${family}`;
   const subtitleLines = wrapCanvasText(ctx, card.subtitle, titleWidth).slice(0, 2);
   const measured = 112 + titleLines.length * Math.round(titleSize * 1.12) + 18 + subtitleLines.length * 40;
-  const gridTop = rows === 1 ? Math.max(measured + 40, 380) : measured + 36;
+  const route = usableRoute(card.route ?? []);
+  const mapFrame = route.length >= 2 ? frameRoute(route, SHARE_MAP_WIDTH, SHARE_MAP_HEIGHT) : null;
+  const showMap = Boolean(mapFrame);
+  const mapTop = measured + 28;
   const stack = rows * cellH + Math.max(0, rows - 1) * gap;
-  const height = rows === 1 ? SHARE_CARD_WIDTH : gridTop + stack + 120;
+  const gridTop = showMap
+    ? mapTop + SHARE_MAP_HEIGHT + 28
+    : rows === 1
+      ? Math.max(measured + 40, 380)
+      : measured + 36;
+  const height = showMap || rows > 1 ? gridTop + stack + 120 : SHARE_CARD_WIDTH;
+  const mapped = Boolean(card.mapped && card.backdrop && mapFrame);
 
   canvas.width = width;
   canvas.height = height;
-
   ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, width, height);
+
+  if (mapFrame) {
+    ctx.save();
+    roundRect(ctx, pad, mapTop, SHARE_MAP_WIDTH, SHARE_MAP_HEIGHT, 28);
+    ctx.clip();
+    if (mapped && card.backdrop) {
+      ctx.drawImage(card.backdrop, pad, mapTop, SHARE_MAP_WIDTH, SHARE_MAP_HEIGHT);
+    } else {
+      ctx.fillStyle = "#12141a";
+      ctx.fillRect(pad, mapTop, SHARE_MAP_WIDTH, SHARE_MAP_HEIGHT);
+    }
+    ctx.translate(pad, mapTop);
+    const pixels = route.map((point) => mapFrame.project(point));
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    pixels.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.strokeStyle = "rgba(250,250,250,0.92)";
+    ctx.lineWidth = 18;
+    ctx.stroke();
+    ctx.strokeStyle = "#e31937";
+    ctx.lineWidth = 9;
+    ctx.stroke();
+    const start = pixels[0];
+    const end = pixels[pixels.length - 1];
+    ctx.beginPath();
+    ctx.fillStyle = "#3dd68c";
+    ctx.arc(start.x, start.y, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.fillStyle = "#e31937";
+    ctx.arc(end.x, end.y, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   ctx.fillStyle = "#e31937";
   ctx.fillRect(0, 0, width, 12);
   roundRect(ctx, pad, 52, 22, 22, 5);
@@ -176,4 +234,10 @@ export function paintShareCard(canvas: HTMLCanvasElement, card: ShareCardPaint):
   ctx.fillStyle = "#71717a";
   ctx.font = `400 24px ${family}`;
   ctx.fillText(card.footnote, pad, footnoteY);
+  if (mapped) {
+    const credit = "© OpenStreetMap";
+    ctx.font = `400 18px ${family}`;
+    const creditWidth = ctx.measureText(credit).width;
+    ctx.fillText(credit, width - pad - creditWidth, footnoteY + 4);
+  }
 }

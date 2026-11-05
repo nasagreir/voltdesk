@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CarStage } from "@/components/dashboard/car-stage";
 import { Button } from "@/components/ui/button";
 import type { AppearanceFile } from "@/lib/appearance";
 import {
@@ -15,7 +16,7 @@ import {
   type ModelId,
 } from "@/lib/car-photos";
 
-const EMPTY: AppearanceFile = { colors: {}, models: {}, names: {} };
+const EMPTY: AppearanceFile = { colors: {}, models: {}, names: {}, scene: "photo" };
 
 export function CarPortrait({
   vehicleId,
@@ -41,7 +42,12 @@ export function CarPortrait({
         .then(async (response) => {
           const body = (await response.json()) as AppearanceFile & { error?: string };
           if (!response.ok) throw new Error(body.error ?? "Could not load paint choices");
-          setFile({ colors: body.colors ?? {}, models: body.models ?? {}, names: body.names ?? {} });
+          setFile({
+            colors: body.colors ?? {},
+            models: body.models ?? {},
+            names: body.names ?? {},
+            scene: body.scene === "model" ? "model" : "photo",
+          });
           setError(null);
         })
         .catch((err: unknown) => {
@@ -74,6 +80,7 @@ export function CarPortrait({
       models: { ...file.models, [vehicleId]: modelId },
       colors: { ...file.colors, [vehicleId]: colorId },
       names: file.names,
+      scene: file.scene,
     });
     setError(null);
     try {
@@ -84,7 +91,12 @@ export function CarPortrait({
       });
       const body = (await response.json()) as AppearanceFile & { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Could not save that paint");
-      setFile({ colors: body.colors ?? {}, models: body.models ?? {}, names: body.names ?? {} });
+      setFile({
+        colors: body.colors ?? {},
+        models: body.models ?? {},
+        names: body.names ?? {},
+        scene: body.scene === "model" ? "model" : "photo",
+      });
       setColorOpen(false);
     } catch (err) {
       setFile(previous);
@@ -100,7 +112,9 @@ export function CarPortrait({
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#09090b]">
       <div className="relative h-52 short:h-28 min-[900px]:h-72">
-        {src && brokenSrc !== src ? (
+        {file.scene === "model" && resolved.modelId && paint ? (
+          <CarStage modelId={resolved.modelId} color={paint.hex} name={modelName} />
+        ) : src && brokenSrc !== src ? (
           // Studio photos are static files already sized for this frame.
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -122,6 +136,7 @@ export function CarPortrait({
           <p className="text-xs text-muted-foreground">
             {modelName}
             {paintNote ? ` · ${paintNote}` : ""}
+            {file.scene === "model" ? " · drag to turn" : ""}
             {reportedColor ? ` · car reports ${reportedColor}` : ""}
           </p>
         </div>

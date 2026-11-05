@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { CarViewCard } from "@/components/settings/car-view-card";
 import { PeopleCard } from "@/components/settings/people-card";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -85,6 +86,7 @@ export function SettingsForm() {
         </p>
       </div>
       <PeopleCard />
+      <CarViewCard />
       <form onSubmit={onSubmit} className="space-y-4">
       {error && (
         <Alert variant="destructive">

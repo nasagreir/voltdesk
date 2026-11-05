@@ -57,6 +57,7 @@ describe("car photos", () => {
       models: { "demo-roadrunner": "model-y" },
       colors: { "demo-roadrunner": "ultra-red", truck: "ultra-red" },
       names: {},
+      scene: "photo",
     });
   });
 
@@ -73,5 +74,12 @@ describe("car photos", () => {
     assert.equal(clean.names.long?.length, 40);
     assert.equal(clean.names.empty, undefined);
     assert.equal(clean.names["../etc"], undefined);
+    assert.equal(clean.scene, "photo");
+  });
+
+  it("keeps a 3D scene and ignores anything else", () => {
+    assert.equal(sanitizeAppearance({ scene: "model" }).scene, "model");
+    assert.equal(sanitizeAppearance({ scene: "hologram" }).scene, "photo");
+    assert.equal(sanitizeAppearance({ scene: "model", models: { car: "model-y" } }).models.car, "model-y");
   });
 });

@@ -207,6 +207,7 @@ export function SessionDetail({ kind, id }: { kind: "drive" | "charge"; id: stri
               options={driveShareOptions(drive, units.distance, units.temp)}
               defaults={DRIVE_SHARE_DEFAULTS}
               presets={DRIVE_SHARE_PRESETS}
+              route={drive.path}
             />
           </div>
         )}

@@ -2,18 +2,26 @@ import { withActor } from "@/lib/auth/actor";
 import { isColorId, isModelId, modelById, type ColorId, type ModelId } from "@/lib/car-photos";
 import { dataPath, readJson, writeJson } from "@/lib/store";
 
+export type CarScene = "photo" | "model";
+
 export interface AppearanceFile {
   colors: Record<string, ColorId>;
   models: Record<string, ModelId>;
   names: Record<string, string>;
+  /** Garage portrait. Photo until someone turns the 3D model on. */
+  scene: CarScene;
 }
 
-const EMPTY: AppearanceFile = { colors: {}, models: {}, names: {} };
+const EMPTY: AppearanceFile = { colors: {}, models: {}, names: {}, scene: "photo" };
+
+export function carScene(value: unknown): CarScene {
+  return value === "model" ? "model" : "photo";
+}
 
 export const VEHICLE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,80}$/;
 
 export function sanitizeAppearance(raw: unknown): AppearanceFile {
-  if (!raw || typeof raw !== "object") return { colors: {}, models: {}, names: {} };
+  if (!raw || typeof raw !== "object") return { colors: {}, models: {}, names: {}, scene: "photo" };
   const body = raw as { colors?: unknown; models?: unknown; names?: unknown };
   const models: AppearanceFile["models"] = {};
   const colors: AppearanceFile["colors"] = {};
@@ -38,7 +46,8 @@ export function sanitizeAppearance(raw: unknown): AppearanceFile {
       if (trimmed) names[id] = trimmed;
     }
   }
-  return { colors, models, names };
+  const scene = carScene((body as { scene?: unknown }).scene);
+  return { colors, models, names, scene };
 }
 
 export function vehicleDisplayName(
@@ -67,6 +76,7 @@ async function saveAppearanceNow(vehicleId: string, modelId: ModelId, colorId: C
     models: { ...current.models, [vehicleId]: modelId },
     colors: { ...current.colors, [vehicleId]: colorId },
     names: current.names,
+    scene: current.scene,
   };
   await writeJson(dataPath("appearance.json"), next);
   return next;
@@ -86,4 +96,13 @@ async function saveVehicleNameNow(vehicleId: string, name: string | null): Promi
   const next: AppearanceFile = { ...current, names };
   await writeJson(dataPath("appearance.json"), next);
   return next;
+}
+
+export async function saveCarScene(scene: CarScene): Promise<AppearanceFile> {
+  return withActor(async () => {
+    const current = await readAppearance();
+    const next: AppearanceFile = { ...current, scene };
+    await writeJson(dataPath("appearance.json"), next);
+    return next;
+  });
 }

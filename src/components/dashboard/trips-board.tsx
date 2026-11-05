@@ -57,6 +57,7 @@ function DriveShare({
       options={driveShareOptions(trip, unit, temp)}
       defaults={DRIVE_SHARE_DEFAULTS}
       presets={DRIVE_SHARE_PRESETS}
+      route={trip.path}
     />
   );
 }
