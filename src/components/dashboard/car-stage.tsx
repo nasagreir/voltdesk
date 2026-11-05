@@ -40,25 +40,77 @@ function applyPaint(THREE: ThreeNS, root: InstanceType<ThreeNS["Object3D"]>, mod
     }
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     for (const material of materials) {
-      if (!material || !("color" in material) || !isBodyPaint(modelId, material.name || "")) continue;
-      const surface = material as InstanceType<ThreeNS["MeshPhysicalMaterial"]>;
-      surface.color.copy(color);
-      surface.map = null;
-      if (modelId === "cybertruck") {
-        surface.metalness = 1;
-        surface.roughness = 0.32;
-      } else {
-        surface.metalness = Math.max(surface.metalness ?? 0, 0.2);
-        surface.roughness = Math.min(surface.roughness ?? 0.35, 0.45);
-        if ("clearcoat" in surface) {
-          surface.clearcoat = 1;
-          surface.clearcoatRoughness = 0.1;
+      if (!material || !("color" in material)) continue;
+      const label = (material.name || "").toLowerCase();
+      if (isBodyPaint(modelId, material.name || "")) {
+        const surface = material as InstanceType<ThreeNS["MeshPhysicalMaterial"]>;
+        surface.color.copy(color);
+        surface.map = null;
+        if (modelId === "cybertruck") {
+          surface.metalness = 1;
+          surface.roughness = 0.22;
+          surface.envMapIntensity = 1.5;
+          surface.needsUpdate = true;
+          continue;
         }
+        const paint = new THREE.MeshPhysicalMaterial({
+          color,
+          metalness: 0.2,
+          roughness: 0.34,
+          clearcoat: 1,
+          clearcoatRoughness: 0.06,
+          envMapIntensity: 1.25,
+          normalMap: "normalMap" in surface ? surface.normalMap : null,
+          normalScale: "normalScale" in surface ? surface.normalScale : undefined,
+        });
+        if (Array.isArray(mesh.material)) {
+          const slot = mesh.material.indexOf(material);
+          if (slot >= 0) mesh.material[slot] = paint;
+        } else {
+          mesh.material = paint;
+        }
+        continue;
       }
-      surface.envMapIntensity = 1;
-      surface.needsUpdate = true;
+      if (!("envMapIntensity" in material)) continue;
+      const finish = material as InstanceType<ThreeNS["MeshStandardMaterial"]>;
+      if (/glass|window/.test(label)) {
+        finish.envMapIntensity = 1.8;
+        finish.roughness = Math.min(finish.roughness ?? 0.08, 0.06);
+      } else if (/chrome|rim|wheel_finish|logo/.test(label) && !/tire|tyre/.test(label)) {
+        finish.envMapIntensity = 1.45;
+        finish.metalness = Math.max(finish.metalness ?? 0, 0.86);
+        finish.roughness = Math.min(finish.roughness ?? 0.3, 0.26);
+      }
+      finish.needsUpdate = true;
     }
   });
+}
+
+function studioEnvironment(THREE: ThreeNS) {
+  const scene = new THREE.Scene();
+  const owned: Array<{ dispose: () => void }> = [];
+  const keep = <T extends { dispose: () => void }>(item: T) => {
+    owned.push(item);
+    return item;
+  };
+  scene.add(
+    new THREE.Mesh(
+      keep(new THREE.SphereGeometry(16, 24, 16)),
+      keep(new THREE.MeshBasicMaterial({ color: 0x222833, side: THREE.BackSide })),
+    ),
+  );
+  const softbox = (width: number, height: number, depth: number, color: number, intensity: number, x: number, y: number, z: number) => {
+    const mesh = new THREE.Mesh(
+      keep(new THREE.BoxGeometry(width, height, depth)),
+      keep(new THREE.MeshStandardMaterial({ color: 0x000000, emissive: color, emissiveIntensity: intensity, roughness: 1 })),
+    );
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+  };
+  softbox(9, 0.45, 2.4, 0xffffff, 6, 0, 5.5, 0.4);
+  softbox(0.5, 4.5, 2.2, 0xfff4e8, 5, -4.6, 2.4, 2.8);
+  softbox(4.5, 0.4, 1.3, 0xd7e6f8, 4, 1.2, 3.2, -4.6);
+  return { scene, dispose: () => owned.forEach((item) => item.dispose()) };
 }
 
 function visibleBounds(THREE: ThreeNS, root: InstanceType<ThreeNS["Object3D"]>) {
@@ -110,9 +162,8 @@ export function CarStage({
         import("three"),
         import("three/examples/jsm/loaders/GLTFLoader.js"),
         import("three/examples/jsm/libs/meshopt_decoder.module.js"),
-        import("three/examples/jsm/environments/RoomEnvironment.js"),
       ])
-        .then(async ([THREE, gltfMod, meshopt, room]) => {
+        .then(async ([THREE, gltfMod, meshopt]) => {
           if (dead || !host.current) return;
           let renderer: InstanceType<ThreeNS["WebGLRenderer"]>;
           try {
@@ -123,19 +174,16 @@ export function CarStage({
           }
           renderer.outputColorSpace = THREE.SRGBColorSpace;
           renderer.toneMapping = THREE.ACESFilmicToneMapping;
-          renderer.toneMappingExposure = 1.05;
+          renderer.toneMappingExposure = 1.08;
+          const studio = studioEnvironment(THREE);
           const pmrem = new THREE.PMREMGenerator(renderer);
-          const env = pmrem.fromScene(new room.RoomEnvironment(), 0.04).texture;
+          const env = pmrem.fromScene(studio.scene, 0.03).texture;
+          studio.dispose();
           const scene = new THREE.Scene();
           scene.environment = env;
+          scene.environmentIntensity = 1;
           const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 200);
-          scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-          const key = new THREE.DirectionalLight(0xfff6ee, 2.4);
-          key.position.set(4, 6, 3);
-          scene.add(key);
-          const rim = new THREE.DirectionalLight(0xb9c7dc, 1.2);
-          rim.position.set(-4, 2.4, -3);
-          scene.add(rim);
+          scene.add(new THREE.HemisphereLight(0xe7eef6, 0x1a1e26, 0.16));
 
           const loader = new gltfMod.GLTFLoader();
           await meshopt.MeshoptDecoder.ready;
@@ -160,19 +208,36 @@ export function CarStage({
           turntable.add(gltf.scene);
           scene.add(turntable);
           const span = Math.max(size.x, size.z);
+          const key = new THREE.DirectionalLight(0xfffaf6, 0.7);
+          key.position.set(span * 0.85, span * 1.25, span * 0.7);
+          const rimLight = new THREE.DirectionalLight(0xd5e3f6, 0.55);
+          rimLight.position.set(-span * 0.35, span * 0.9, -span * 1.2);
+          scene.add(key, rimLight);
           camera.position.set(span * 0.72, size.y * 0.72, span * 1.05);
           camera.near = span / 200;
           camera.far = span * 20;
           camera.lookAt(0, size.y * 0.38, 0);
           camera.updateProjectionMatrix();
 
-          const shadow = new THREE.Mesh(
-            new THREE.CircleGeometry(span * 0.42, 48),
-            new THREE.MeshBasicMaterial({ color: "#050506", transparent: true, opacity: 0.45 }),
+          const blot = document.createElement("canvas");
+          blot.width = 256;
+          blot.height = 256;
+          const ink = blot.getContext("2d");
+          if (ink) {
+            const shade = ink.createRadialGradient(128, 128, 24, 128, 128, 128);
+            shade.addColorStop(0, "rgba(0,0,0,0.72)");
+            shade.addColorStop(0.45, "rgba(0,0,0,0.28)");
+            shade.addColorStop(1, "rgba(0,0,0,0)");
+            ink.fillStyle = shade;
+            ink.fillRect(0, 0, 256, 256);
+          }
+          const floor = new THREE.Mesh(
+            new THREE.CircleGeometry(span * 0.58, 48),
+            new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(blot), transparent: true, depthWrite: false }),
           );
-          shadow.rotation.x = -Math.PI / 2;
-          shadow.position.y = 0.001;
-          scene.add(shadow);
+          floor.rotation.x = -Math.PI / 2;
+          floor.position.y = 0.001;
+          scene.add(floor);
 
           renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
           renderer.setClearColor(0x000000, 0);
@@ -247,8 +312,10 @@ export function CarStage({
               const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
               materials.forEach((material) => material?.dispose());
             });
-            shadow.geometry.dispose();
-            (shadow.material as InstanceType<ThreeNS["Material"]>).dispose();
+            floor.geometry.dispose();
+            const floorMaterial = floor.material as InstanceType<ThreeNS["MeshBasicMaterial"]>;
+            floorMaterial.map?.dispose();
+            floorMaterial.dispose();
             env.dispose();
             pmrem.dispose();
             renderer.dispose();
