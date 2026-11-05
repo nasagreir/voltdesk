@@ -56,7 +56,7 @@ export function CarViewCard() {
           <div className="min-w-0">
             <p className="text-sm">3D model</p>
             <p className="text-sm text-muted-foreground">
-              The garage shows a model you can turn. Paint still follows the color on the garage. Off keeps the studio photo.
+              The garage shows a model built to the real length, width, height, and wheelbase. Drag it to turn it. Paint still follows the color on the garage. Off keeps the studio photo.
             </p>
           </div>
           <Switch
